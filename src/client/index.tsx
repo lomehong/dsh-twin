@@ -65,6 +65,7 @@ function TwinSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState('')
   const [toolHint, setToolHint] = useState('')
+  const [stats, setStats] = useState<{ memoryTotal: number; memoryTypes: Record<string, number>; hasPersona: boolean } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +77,12 @@ function TwinSettingsPage() {
       }
     } catch {
       /* 保持默认 */
+    }
+    try {
+      const s = await api('/dsh-twin/stats', 'GET')
+      if (s.ok && s.stats) setStats(s.stats)
+    } catch {
+      /* 忽略统计失败 */
     }
     setLoaded(true)
   }, [])
@@ -245,6 +252,12 @@ function TwinSettingsPage() {
           <input type="file" accept=".txt,.md,.markdown,text/plain" style={{ display: 'none' }} onChange={handleImportKnowledge} />
         </label>
       </div>
+
+      {stats && (
+        <div style={s.hint}>
+          状态：记忆 {stats.memoryTotal} 条{stats.memoryTotal > 0 ? `（${Object.entries(stats.memoryTypes).map(([k, v]) => `${k}×${v}`).join('，')}）` : ''} · 人格{stats.hasPersona ? '已配置' : '未配置'}
+        </div>
+      )}
 
       <div style={s.row}>
         <button style={s.btn} disabled={!loaded || saving} onClick={handleSave}>{saving ? '保存中…' : '保存并生效'}</button>
