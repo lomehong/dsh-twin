@@ -41,10 +41,10 @@ const TONES = [
 ]
 
 const PRESETS = [
-  { id: 'custom', label: '自定义', config: { identity: { name: '', role: '', background: '' }, persona: { tone: 'professional', style: '', values: '', rules: '', escalation: '', avoid: '' }, knowledge: { seeds: [] } } },
-  { id: 'assistant', label: '私人助理', config: { identity: { name: '', role: '私人助理', background: '我的日常助理，帮我安排日程、整理信息、处理琐事。' }, persona: { tone: 'friendly', style: '主动、贴心，替我把事情安排好。', values: '以主人利益为先，靠谱、主动。', rules: '先听清需求再行动；能代办的代办，不确定的先确认。', escalation: '涉及金钱、对外承诺、对外发布内容时转主人。', avoid: '不擅自对外承诺、不替主人做主决定。' }, knowledge: { seeds: [] } } },
-  { id: 'expert', label: '专家顾问', config: { identity: { name: '', role: '领域专家顾问', background: '在我擅长的领域提供专业、有依据的分析与建议。' }, persona: { tone: 'professional', style: '严谨、条理清晰，先给结论再给依据。', values: '诚实、有据，不编造。', rules: '先给结论再讲依据；明确标出不确定的地方。', escalation: '未掌握的事实要如实说明，并给出进一步查证方向。', avoid: '不臆测、不夸大。' }, knowledge: { seeds: [] } } },
-  { id: 'service', label: '客服分身', config: { identity: { name: '', role: '客户服务', background: '负责解答客户常见问题、指引流程、转达诉求。' }, persona: { tone: 'friendly', style: '礼貌、耐心，用简单直白的语言。', values: '耐心、礼貌、不与客户起冲突。', rules: '先共情、再解答；自己解决不了就转人工。', escalation: '投诉、退换货、超出权限的事项转人工处理。', avoid: '不承诺做不到的事、不与客户争执。' }, knowledge: { seeds: [] } } },
+  { id: 'custom', label: '自定义', toolHint: '自定义角色：请按需在「手机连接 → 访客权限」开放工具。', config: { identity: { name: '', role: '', background: '' }, persona: { tone: 'professional', style: '', values: '', rules: '', escalation: '', avoid: '' }, knowledge: { seeds: [] } } },
+  { id: 'assistant', label: '私人助理', toolHint: '私人助理建议：访客常开 `web*`、`todo*`（联网搜索/任务清单）。', config: { identity: { name: '', role: '私人助理', background: '我的日常助理，帮我安排日程、整理信息、处理琐事。' }, persona: { tone: 'friendly', style: '主动、贴心，替我把事情安排好。', values: '以主人利益为先，靠谱、主动。', rules: '先听清需求再行动；能代办的代办，不确定的先确认。', escalation: '涉及金钱、对外承诺、对外发布内容时转主人。', avoid: '不擅自对外承诺、不替主人做主决定。' }, knowledge: { seeds: ['主人的日程与偏好以最近对话为准。'] } } },
+  { id: 'expert', label: '专家顾问', toolHint: '专家顾问建议：访客常开 `web*`（联网检索）。', config: { identity: { name: '', role: '领域专家顾问', background: '在我擅长的领域提供专业、有依据的分析与建议。' }, persona: { tone: 'professional', style: '严谨、条理清晰，先给结论再给依据。', values: '诚实、有据，不编造。', rules: '先给结论再讲依据；明确标出不确定的地方。', escalation: '未掌握的事实要如实说明，并给出进一步查证方向。', avoid: '不臆测、不夸大。' }, knowledge: { seeds: ['我的分析基于可靠来源，结论会给出依据。'] } } },
+  { id: 'service', label: '客服分身', toolHint: '客服分身建议：访客默认纯对话即可，一般无需开放工具。', config: { identity: { name: '', role: '客户服务', background: '负责解答客户常见问题、指引流程、转达诉求。' }, persona: { tone: 'friendly', style: '礼貌、耐心，用简单直白的语言。', values: '耐心、礼貌、不与客户起冲突。', rules: '先共情、再解答；自己解决不了就转人工。', escalation: '投诉、退换货、超出权限的事项转人工处理。', avoid: '不承诺做不到的事、不与客户争执。' }, knowledge: { seeds: ['常见问题优先给出简短、可执行的解决路径。'] } } },
 ]
 
 const emptyConfig: Config = PRESETS[0].config as Config
@@ -64,11 +64,16 @@ function TwinSettingsPage() {
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState('')
+  const [toolHint, setToolHint] = useState('')
 
   const load = useCallback(async () => {
     try {
       const d = await api('/dsh-twin/config', 'GET')
-      if (d.ok && d.config) setCfg({ ...emptyConfig, ...d.config })
+      if (d.ok && d.config) {
+        setCfg({ ...emptyConfig, ...d.config })
+        const t = d.config.template
+        setToolHint(PRESETS.find((p) => p.id === t)?.toolHint ?? '')
+      }
     } catch {
       /* 保持默认 */
     }
@@ -87,6 +92,7 @@ function TwinSettingsPage() {
       persona: { ...prev.persona, ...preset.config.persona },
       knowledge: { ...(prev.knowledge ?? { seeds: [] }), seeds: preset.config.knowledge.seeds },
     }))
+    setToolHint(preset.toolHint)
     setStatus(`已套用模板：${preset.label}`)
   }
 
@@ -177,6 +183,7 @@ function TwinSettingsPage() {
     btn: { padding: '8px 18px', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: '#4a6cf7', color: '#fff' },
     ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: '#fff', color: '#444' },
     row: { display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' },
+    hint: { fontSize: '12px', color: '#8a8f9c', background: '#f6f7f9', border: '1px solid #eee', borderRadius: '6px', padding: '8px 10px', marginTop: '4px' },
     status: { fontSize: '13px', marginTop: '10px', color: '#4a6cf7' },
   } as Record<string, React.CSSProperties>
 
@@ -195,6 +202,7 @@ function TwinSettingsPage() {
             <button key={p.id} style={cfg.template === p.id ? s.chipOn : s.chip} onClick={() => applyPreset(p.id)}>{p.label}</button>
           ))}
         </div>
+        {toolHint && <div style={s.hint}>🛡️ {toolHint}</div>}
       </div>
 
       <div style={s.section}>
