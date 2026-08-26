@@ -1,0 +1,50 @@
+{
+  "name": "@dsh-extra/dsh-twin",
+  "version": "0.1.0",
+  "description": "可拔插、可移植的数字分身：digital-twin 预设 + 人格层 + 顶级设置向导（人格/知识/模板，导入导出）。人格为数据，插件为纯框架。",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**",
+    "presets/**",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-api-remotes"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "build:client": "node scripts/build-client.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=0.1.0",
+    "@deepseek-ai/dsh-agent-presets": ">=0.1.0",
+    "@deepseek-ai/dsh-settings": ">=0.1.0",
+    "@deepseek-ai/dsh-system-prompt": ">=0.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.1",
+    "esbuild": "^0.25.12",
+    "react": "^18.2.0"
+  }
+}
