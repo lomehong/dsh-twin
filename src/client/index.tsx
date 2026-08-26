@@ -232,16 +232,6 @@ function TwinSettingsPage() {
       <h1 style={s.h}>数字分身设置</h1>
       <p style={s.sub}>配置你的数字分身：模板 / 人格 / 知识。保存后立即生效（人格注入提示词、知识写入共享记忆）。插件是纯框架，人格是数据，可导入导出随身携带。</p>
 
-      <div style={s.section}>
-        <div style={s.secTitle}>模板预设</div>
-        <div style={s.chipRow}>
-          {PRESETS.map((p) => (
-            <button key={p.id} style={cfg.template === p.id ? s.chipOn : s.chip} onClick={() => applyPreset(p.id)}>{p.label}</button>
-          ))}
-        </div>
-        {toolHint && <div style={s.hint}>🛡️ {toolHint}</div>}
-      </div>
-
       <div style={s.tabBar}>
         {([['persona', '人格'], ['knowledge', '知识'], ['monitor', '监控'], ['history', '历史']] as const).map(([id, label]) => (
           <button key={id} style={tab === id ? s.tabOn : s.tab} onClick={() => setTab(id)}>{label}</button>
@@ -250,6 +240,13 @@ function TwinSettingsPage() {
 
       {tab === 'persona' && (
         <div style={s.section}>
+          <div style={s.secTitle}>模板预设</div>
+          <div style={s.chipRow}>
+            {PRESETS.map((p) => (
+              <button key={p.id} style={cfg.template === p.id ? s.chipOn : s.chip} onClick={() => applyPreset(p.id)}>{p.label}</button>
+            ))}
+          </div>
+          {toolHint && <div style={s.hint}>🛡️ {toolHint}</div>}
           <div style={s.secTitle}>人格</div>
           <label style={s.label}>名字</label>
           <input style={s.input} value={cfg.identity.name} onChange={(e) => setI('name', e.target.value)} placeholder="例如：小 D" />
