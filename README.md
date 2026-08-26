@@ -3,7 +3,7 @@
 一个把「数字分身」收敛成**单个可拔插插件包**的方案：装到任意 DSH 上即出现数字分身
 （`digital-twin` agent 预设），人格/知识通过顶级「分身设置」向导配置，可导入导出随身携带。
 
-插件=纯框架，人格=数据。`im-channel` 只是把 dsh 接入 IM 的**通道**，与分身身份无关。
+插件=纯框架，人格=数据。
 
 ## 分层
 
@@ -13,7 +13,6 @@
 | **能力/行为层** | `digital-twin` agent 预设（由 `standard` 裁剪，模型向工具） |
 | **人格/表达层** | `systemPrompt.section('twin')` 动态注入（读 `twin-config.json`） |
 | **知识层** | 写入 `dsh-memory`（共享记忆，去重） |
-| 通道层 | `im-channel`（微信/飞书/企业微信），纯传输 |
 
 ## 功能
 
@@ -59,7 +58,6 @@ dsh plugin --profile web add git+https://github.com/lomehong/dsh-twin.git   # �
 ## 与其它插件的关系
 
 - `dsh-memory`：共享记忆（知识层）。dsh-twin 在保存知识时写入它。
-- `im-channel`：仅传输通道。不负责分身身份；分身的身份/能力由 preset + 人格层决定。
 - `dsh-persona-guide`（可选）：分身搭建指引文档查看器，独立于本插件。
 
 ## 开发
