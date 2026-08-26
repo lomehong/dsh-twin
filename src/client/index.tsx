@@ -29,7 +29,7 @@ export function apply(ctx: ClientContext): void {
 type Config = {
   template: string
   identity: { name: string; role: string; background: string }
-  persona: { tone: string; style: string }
+  persona: { tone: string; style: string; values: string; rules: string; escalation: string; avoid: string }
   knowledge: { seeds: string[] }
 }
 
@@ -41,10 +41,10 @@ const TONES = [
 ]
 
 const PRESETS = [
-  { id: 'custom', label: '自定义', config: { identity: { name: '', role: '', background: '' }, persona: { tone: 'professional', style: '' }, knowledge: { seeds: [] } } },
-  { id: 'assistant', label: '私人助理', config: { identity: { name: '', role: '私人助理', background: '我的日常助理，帮我安排日程、整理信息、处理琐事。' }, persona: { tone: 'friendly', style: '主动、贴心，替我把事情安排好。' }, knowledge: { seeds: [] } } },
-  { id: 'expert', label: '专家顾问', config: { identity: { name: '', role: '领域专家顾问', background: '在我擅长的领域提供专业、有依据的分析与建议。' }, persona: { tone: 'professional', style: '严谨、条理清晰，先给结论再给依据。' }, knowledge: { seeds: [] } } },
-  { id: 'service', label: '客服分身', config: { identity: { name: '', role: '客户服务', background: '负责解答客户常见问题、指引流程、转达诉求。' }, persona: { tone: 'friendly', style: '礼貌、耐心，用简单直白的语言。' }, knowledge: { seeds: [] } } },
+  { id: 'custom', label: '自定义', config: { identity: { name: '', role: '', background: '' }, persona: { tone: 'professional', style: '', values: '', rules: '', escalation: '', avoid: '' }, knowledge: { seeds: [] } } },
+  { id: 'assistant', label: '私人助理', config: { identity: { name: '', role: '私人助理', background: '我的日常助理，帮我安排日程、整理信息、处理琐事。' }, persona: { tone: 'friendly', style: '主动、贴心，替我把事情安排好。', values: '以主人利益为先，靠谱、主动。', rules: '先听清需求再行动；能代办的代办，不确定的先确认。', escalation: '涉及金钱、对外承诺、对外发布内容时转主人。', avoid: '不擅自对外承诺、不替主人做主决定。' }, knowledge: { seeds: [] } } },
+  { id: 'expert', label: '专家顾问', config: { identity: { name: '', role: '领域专家顾问', background: '在我擅长的领域提供专业、有依据的分析与建议。' }, persona: { tone: 'professional', style: '严谨、条理清晰，先给结论再给依据。', values: '诚实、有据，不编造。', rules: '先给结论再讲依据；明确标出不确定的地方。', escalation: '未掌握的事实要如实说明，并给出进一步查证方向。', avoid: '不臆测、不夸大。' }, knowledge: { seeds: [] } } },
+  { id: 'service', label: '客服分身', config: { identity: { name: '', role: '客户服务', background: '负责解答客户常见问题、指引流程、转达诉求。' }, persona: { tone: 'friendly', style: '礼貌、耐心，用简单直白的语言。', values: '耐心、礼貌、不与客户起冲突。', rules: '先共情、再解答；自己解决不了就转人工。', escalation: '投诉、退换货、超出权限的事项转人工处理。', avoid: '不承诺做不到的事、不与客户争执。' }, knowledge: { seeds: [] } } },
 ]
 
 const emptyConfig: Config = PRESETS[0].config as Config
@@ -189,6 +189,14 @@ function TwinSettingsPage() {
         </div>
         <label style={s.label}>风格补充</label>
         <textarea style={s.textarea} value={cfg.persona.style} onChange={(e) => setP('style', e.target.value)} placeholder="例如：先给结论再给依据 / 别用太专业的黑话…" />
+        <label style={s.label}>价值观与原则</label>
+        <textarea style={s.textarea} value={cfg.persona.values} onChange={(e) => setP('values', e.target.value)} placeholder="例如：以主人利益为先；诚实有据、不编造。" />
+        <label style={s.label}>决策与做事方式</label>
+        <textarea style={s.textarea} value={cfg.persona.rules} onChange={(e) => setP('rules', e.target.value)} placeholder="例如：先听清需求再行动；能代办的代办，不确定的先确认。" />
+        <label style={s.label}>边界与转人工</label>
+        <textarea style={s.textarea} value={cfg.persona.escalation} onChange={(e) => setP('escalation', e.target.value)} placeholder="例如：涉及金钱/对外承诺/对外发布时转主人。" />
+        <label style={s.label}>禁忌</label>
+        <textarea style={s.textarea} value={cfg.persona.avoid} onChange={(e) => setP('avoid', e.target.value)} placeholder="例如：不擅自对外承诺、不替主人做主决定。" />
       </div>
 
       <div style={s.section}>
