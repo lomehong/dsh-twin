@@ -67,6 +67,7 @@ function TwinSettingsPage() {
   const [toolHint, setToolHint] = useState('')
   const [stats, setStats] = useState<{ memoryTotal: number; memoryTypes: Record<string, number>; hasPersona: boolean } | null>(null)
   const [history, setHistory] = useState<{ index: number; ts: string }[]>([])
+  const [monitor, setMonitor] = useState<{ sessionCount: number; twinSessionCount: number; tokens: Record<string, number>; llmMs: number; turns: number; steps: number; errors: number; errorRate: number } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -91,12 +92,19 @@ function TwinSettingsPage() {
     } catch {
       /* 忽略历史 */
     }
+    try {
+      const m = await api('/dsh-twin/monitor', 'GET')
+      if (m.ok && m.monitor) setMonitor(m.monitor)
+    } catch {
+      /* 忽略监控 */
+    }
     setLoaded(true)
   }, [])
 
   useEffect(() => { load() }, [load])
 
   async function restoreVersion(index: number) {
+    if (!window.confirm('确定要恢复到该历史版本吗？当前「分身设置」配置会被替换。')) return
     const d = await api('/dsh-twin/history/restore', 'POST', { index })
     if (d.ok && d.config) {
       setCfg({ ...emptyConfig, ...d.config })
@@ -270,6 +278,17 @@ function TwinSettingsPage() {
           <input type="file" accept=".txt,.md,.markdown,text/plain" style={{ display: 'none' }} onChange={handleImportKnowledge} />
         </label>
       </div>
+
+      {monitor && (
+        <div style={s.section}>
+          <div style={s.secTitle}>3 · 运行监控</div>
+          <div style={s.hint}>
+            会话 {monitor.sessionCount}（分身 {monitor.twinSessionCount}）· Turns {monitor.turns} · Steps {monitor.steps} · 错误 {monitor.errors}（{Math.round(monitor.errorRate * 100)}%）· LLM 耗时 {Math.round(monitor.llmMs / 1000)}s
+            <br />
+            Tokens：输入 {monitor.tokens.input} · 输出 {monitor.tokens.output} · 缓存读 {monitor.tokens.cacheRead} · 缓存写 {monitor.tokens.cacheWrite}
+          </div>
+        </div>
+      )}
 
       {history.length > 0 && (
         <div style={s.hint}>
