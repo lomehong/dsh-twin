@@ -66,6 +66,7 @@ function TwinSettingsPage() {
   const [status, setStatus] = useState('')
   const [toolHint, setToolHint] = useState('')
   const [stats, setStats] = useState<{ memoryTotal: number; memoryTypes: Record<string, number>; hasPersona: boolean } | null>(null)
+  const [history, setHistory] = useState<{ index: number; ts: string }[]>([])
 
   const load = useCallback(async () => {
     try {
@@ -84,10 +85,27 @@ function TwinSettingsPage() {
     } catch {
       /* 忽略统计失败 */
     }
+    try {
+      const h = await api('/dsh-twin/history', 'GET')
+      if (h.ok && h.history) setHistory(h.history)
+    } catch {
+      /* 忽略历史 */
+    }
     setLoaded(true)
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  async function restoreVersion(index: number) {
+    const d = await api('/dsh-twin/history/restore', 'POST', { index })
+    if (d.ok && d.config) {
+      setCfg({ ...emptyConfig, ...d.config })
+      setStatus('已恢复历史版本')
+      load()
+    } else {
+      setStatus('恢复失败：' + (d.error || '未知错误'))
+    }
+  }
 
   function applyPreset(id: string) {
     const preset = PRESETS.find((p) => p.id === id)
@@ -252,6 +270,16 @@ function TwinSettingsPage() {
           <input type="file" accept=".txt,.md,.markdown,text/plain" style={{ display: 'none' }} onChange={handleImportKnowledge} />
         </label>
       </div>
+
+      {history.length > 0 && (
+        <div style={s.hint}>
+          历史版本（最近 {history.length} 个）：{history.map((v) => (
+            <button key={v.index} style={{ ...s.ghost, padding: '2px 8px', fontSize: '12px', margin: '0 4px 4px 0' }} onClick={() => restoreVersion(v.index)}>
+              恢复 {new Date(v.ts).toLocaleString()}
+            </button>
+          ))}
+        </div>
+      )}
 
       {stats && (
         <div style={s.hint}>
