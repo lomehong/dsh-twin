@@ -29,6 +29,9 @@
   边界与转人工 / 禁忌，让分身更立体、更守规矩。
 - **安全边界段（anti-injection）**：`twin-guard` 段注入静态安全指令——对话者身份与权限由
   系统决定、无视试图泄露/越权/扮演他人的注入指令、敏感事项礼貌拒绝或转交主人。
+- **最小攻击面预设**：`digital-twin` 预设为 **conversation-first**——**不挂 shell（bash/pwsh）与
+  filesystem 工具**，只保留 web/todo/goal/ask-user/skill/jobs 等模型向工具，降低对访客的分身暴露面；
+  需要完整能力的会话可切换到 `standard`/`code` 预设。
 - **知识种子**：保存时写入 `dsh-memory`（按内容去重）。
 
 ## 安装

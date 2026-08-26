@@ -1,29 +1,14 @@
-# The `digital-twin` agent preset: a trimmed agent targeted at being a digital
+# The `digital-twin` agent preset: a CONVERSATION-FIRST agent for the digital
 # avatar. Personality is injected by the dsh-twin host bundle through a
-# `systemPrompt` section reading the twin config, which overrides/shapes this
-# base persona. Only model-facing rows that register into the host `tools`
-# registry live here, so no `isolate` realm is needed (matching `standard`).
+# `systemPrompt` section reading the twin config. To minimize a guest-facing
+# avatar's attack surface, heavy/risky tools (shell, filesystem) are omitted —
+# only model-facing rows that register into the host `tools` registry live
+# here, so no `isolate` realm is needed (matching `standard`).
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
     text: >-
       你是 {{model}} 驱动的数字分身。
-
-- id: tool-bash
-  name: '@deepseek-ai/dsh-tool-bash'
-  disabled: !!js process.platform === 'win32'
-
-- id: tool-pwsh
-  name: '@deepseek-ai/dsh-tool-pwsh'
-  disabled: !!js process.platform !== 'win32'
-
-- id: tool-fs
-  name: '@deepseek-ai/dsh-tool-fs'
-
-- id: tool-fs-search
-  name: '@deepseek-ai/dsh-tool-fs-search'
-  config:
-    sampleOverCapGlobResults: false
 
 - id: tool-jobs
   name: '@deepseek-ai/dsh-tool-jobs'
