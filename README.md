@@ -32,7 +32,7 @@
 - **最小攻击面预设**：`digital-twin` 预设为 **conversation-first**——**不挂 shell（bash/pwsh）与
   filesystem 工具**，只保留 web/todo/goal/ask-user/skill/jobs 等模型向工具，降低对访客的分身暴露面；
   需要完整能力的会话可切换到 `standard`/`code` 预设。
-- **知识种子**：保存时写入 `dsh-memory`（按内容去重）。
+- **知识种子**：保存时写入 `dsh-memory`（按内容去重）；向导支持从 `.txt/.md` 文件一键导入（按行去重合并），便于把文档喂成分身的初始记忆。
 - **记忆整理**：保存时对 dsh-memory 做一次规整——合并内容规整后相同的近重复条目（保留最新、
   并集 participants/scope），避免记忆重复、保持存储整洁。
 

@@ -138,6 +138,28 @@ function TwinSettingsPage() {
     reader.readAsText(file)
   }
 
+  function handleImportKnowledge(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const text = String(reader.result || '')
+        const lines = text.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+        setCfg((prev) => {
+          const set = new Set(prev.knowledge?.seeds ?? [])
+          for (const l of lines) if (!set.has(l)) set.add(l)
+          return { ...prev, knowledge: { seeds: [...set] } }
+        })
+        setStatus(`已从 ${file.name} 导入 ${lines.length} 条知识种子（请点“保存并生效”写入记忆库）`)
+      } catch (err) {
+        setStatus('导入失败：' + String(err))
+      }
+      e.target.value = ''
+    }
+    reader.readAsText(file)
+  }
+
   const s = {
     wrap: { padding: '20px', maxWidth: '720px' },
     h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
@@ -208,6 +230,10 @@ function TwinSettingsPage() {
           onChange={(e) => setCfg((prev) => ({ ...prev, knowledge: { seeds: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean) } }))}
           placeholder={'例如：\n我是某公司研发负责人\n我们项目用 TypeScript\n每周五下午开周会'}
         />
+        <label style={{ ...s.ghost, display: 'inline-block', marginTop: '8px' }}>
+          导入知识文件(.txt/.md)
+          <input type="file" accept=".txt,.md,.markdown,text/plain" style={{ display: 'none' }} onChange={handleImportKnowledge} />
+        </label>
       </div>
 
       <div style={s.row}>
