@@ -33,6 +33,8 @@
   filesystem 工具**，只保留 web/todo/goal/ask-user/skill/jobs 等模型向工具，降低对访客的分身暴露面；
   需要完整能力的会话可切换到 `standard`/`code` 预设。
 - **知识种子**：保存时写入 `dsh-memory`（按内容去重）。
+- **记忆整理**：保存时对 dsh-memory 做一次规整——合并内容规整后相同的近重复条目（保留最新、
+  并集 participants/scope），避免记忆重复、保持存储整洁。
 
 ## 安装
 
