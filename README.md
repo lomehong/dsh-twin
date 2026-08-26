@@ -11,7 +11,7 @@
 |---|---|
 | 基础层（模型/运行时） | DSH 本身 |
 | **能力/行为层** | `digital-twin` agent 预设（由 `standard` 裁剪，模型向工具） |
-| **人格/表达层** | `systemPrompt.section('twin')` 动态注入（读 `twin-config.json`） |
+| **人格/表达层** | `systemPrompt.section('twin')` 动态注入（读 `twin-config.json`，**仅 digital-twin 预设的 agent 生效**） |
 | **知识层** | 写入 `dsh-memory`（共享记忆，去重） |
 
 ## 功能
@@ -22,7 +22,9 @@
   向导提供「导出人格 / 导入人格」，换电脑装插件→导入即可。
 - **自动默认**：未显式选择默认 preset 时设为 `digital-twin`（幂等，尊重手动选择；
   把组合 base `standard` 视为「未选择」可覆盖）。
-- **人格只进分身的槽**：预设不写死 persona，全由 `twin` 段动态注入，改配置即生效。
+- **严格专属人格**：`twin` 段通过 `agentPresets.composedPreset(agent.ctx)` 判断当前 agent
+  是否由 `digital-twin` 预设组合，仅对分身 agent 注入人格；其它预设/会话不会带上这套人格。
+  预设不写死 persona，人格全由 `twin` 段动态注入，改配置即生效。
 - **知识种子**：保存时写入 `dsh-memory`（按内容去重）。
 
 ## 安装
