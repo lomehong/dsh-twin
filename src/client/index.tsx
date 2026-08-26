@@ -68,6 +68,7 @@ function TwinSettingsPage() {
   const [stats, setStats] = useState<{ memoryTotal: number; memoryTypes: Record<string, number>; hasPersona: boolean } | null>(null)
   const [history, setHistory] = useState<{ index: number; ts: string }[]>([])
   const [monitor, setMonitor] = useState<{ sessionCount: number; twinSessionCount: number; tokens: Record<string, number>; llmMs: number; turns: number; steps: number; errors: number; errorRate: number } | null>(null)
+  const [tab, setTab] = useState<'persona' | 'knowledge' | 'monitor' | 'history'>('persona')
 
   const load = useCallback(async () => {
     try {
@@ -216,6 +217,9 @@ function TwinSettingsPage() {
     btn: { padding: '8px 18px', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: '#4a6cf7', color: '#fff' },
     ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: '#fff', color: '#444' },
     row: { display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' },
+    tabBar: { display: 'flex', gap: '4px', borderBottom: '1px solid #e5e7eb', marginBottom: '14px' },
+    tab: { padding: '8px 14px', fontSize: '13px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#666', borderBottom: '2px solid transparent' },
+    tabOn: { padding: '8px 14px', fontSize: '13px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#4a6cf7', fontWeight: 600, borderBottom: '2px solid #4a6cf7' },
     hint: { fontSize: '12px', color: '#8a8f9c', background: '#f6f7f9', border: '1px solid #eee', borderRadius: '6px', padding: '8px 10px', marginTop: '4px' },
     status: { fontSize: '13px', marginTop: '10px', color: '#4a6cf7' },
   } as Record<string, React.CSSProperties>
@@ -238,65 +242,86 @@ function TwinSettingsPage() {
         {toolHint && <div style={s.hint}>🛡️ {toolHint}</div>}
       </div>
 
-      <div style={s.section}>
-        <div style={s.secTitle}>1 · 人格</div>
-        <label style={s.label}>名字</label>
-        <input style={s.input} value={cfg.identity.name} onChange={(e) => setI('name', e.target.value)} placeholder="例如：小 D" />
-        <label style={s.label}>身份定位</label>
-        <input style={s.input} value={cfg.identity.role} onChange={(e) => setI('role', e.target.value)} placeholder="例如：私人助理 / 研发助手 / 专家顾问" />
-        <label style={s.label}>背景</label>
-        <textarea style={s.textarea} value={cfg.identity.background} onChange={(e) => setI('background', e.target.value)} placeholder="你是谁、懂什么、服务谁…" />
-        <label style={s.label}>语气</label>
-        <div style={s.chipRow}>
-          {TONES.map((t) => (
-            <button key={t.id} style={cfg.persona.tone === t.id ? s.chipOn : s.chip} onClick={() => setP('tone', t.id)}>{t.label}</button>
-          ))}
-        </div>
-        <label style={s.label}>风格补充</label>
-        <textarea style={s.textarea} value={cfg.persona.style} onChange={(e) => setP('style', e.target.value)} placeholder="例如：先给结论再给依据 / 别用太专业的黑话…" />
-        <label style={s.label}>价值观与原则</label>
-        <textarea style={s.textarea} value={cfg.persona.values} onChange={(e) => setP('values', e.target.value)} placeholder="例如：以主人利益为先；诚实有据、不编造。" />
-        <label style={s.label}>决策与做事方式</label>
-        <textarea style={s.textarea} value={cfg.persona.rules} onChange={(e) => setP('rules', e.target.value)} placeholder="例如：先听清需求再行动；能代办的代办，不确定的先确认。" />
-        <label style={s.label}>边界与转人工</label>
-        <textarea style={s.textarea} value={cfg.persona.escalation} onChange={(e) => setP('escalation', e.target.value)} placeholder="例如：涉及金钱/对外承诺/对外发布时转主人。" />
-        <label style={s.label}>禁忌</label>
-        <textarea style={s.textarea} value={cfg.persona.avoid} onChange={(e) => setP('avoid', e.target.value)} placeholder="例如：不擅自对外承诺、不替主人做主决定。" />
+      <div style={s.tabBar}>
+        {([['persona', '人格'], ['knowledge', '知识'], ['monitor', '监控'], ['history', '历史']] as const).map(([id, label]) => (
+          <button key={id} style={tab === id ? s.tabOn : s.tab} onClick={() => setTab(id)}>{label}</button>
+        ))}
       </div>
 
-      <div style={s.section}>
-        <div style={s.secTitle}>2 · 知识（共享记忆种子）</div>
-        <label style={s.label}>记忆（每行一条）</label>
-        <textarea
-          style={{ ...s.textarea, minHeight: '80px' }}
-          value={(cfg.knowledge?.seeds ?? []).join('\n')}
-          onChange={(e) => setCfg((prev) => ({ ...prev, knowledge: { seeds: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean) } }))}
-          placeholder={'例如：\n我是某公司研发负责人\n我们项目用 TypeScript\n每周五下午开周会'}
-        />
-        <label style={{ ...s.ghost, display: 'inline-block', marginTop: '8px' }}>
-          导入知识文件(.txt/.md)
-          <input type="file" accept=".txt,.md,.markdown,text/plain" style={{ display: 'none' }} onChange={handleImportKnowledge} />
-        </label>
-      </div>
-
-      {monitor && (
+      {tab === 'persona' && (
         <div style={s.section}>
-          <div style={s.secTitle}>3 · 运行监控</div>
-          <div style={s.hint}>
-            会话 {monitor.sessionCount}（分身 {monitor.twinSessionCount}）· Turns {monitor.turns} · Steps {monitor.steps} · 错误 {monitor.errors}（{Math.round(monitor.errorRate * 100)}%）· LLM 耗时 {Math.round(monitor.llmMs / 1000)}s
-            <br />
-            Tokens：输入 {monitor.tokens.input} · 输出 {monitor.tokens.output} · 缓存读 {monitor.tokens.cacheRead} · 缓存写 {monitor.tokens.cacheWrite}
+          <div style={s.secTitle}>人格</div>
+          <label style={s.label}>名字</label>
+          <input style={s.input} value={cfg.identity.name} onChange={(e) => setI('name', e.target.value)} placeholder="例如：小 D" />
+          <label style={s.label}>身份定位</label>
+          <input style={s.input} value={cfg.identity.role} onChange={(e) => setI('role', e.target.value)} placeholder="例如：私人助理 / 研发助手 / 专家顾问" />
+          <label style={s.label}>背景</label>
+          <textarea style={s.textarea} value={cfg.identity.background} onChange={(e) => setI('background', e.target.value)} placeholder="你是谁、懂什么、服务谁…" />
+          <label style={s.label}>语气</label>
+          <div style={s.chipRow}>
+            {TONES.map((t) => (
+              <button key={t.id} style={cfg.persona.tone === t.id ? s.chipOn : s.chip} onClick={() => setP('tone', t.id)}>{t.label}</button>
+            ))}
           </div>
+          <label style={s.label}>风格补充</label>
+          <textarea style={s.textarea} value={cfg.persona.style} onChange={(e) => setP('style', e.target.value)} placeholder="例如：先给结论再给依据 / 别用太专业的黑话…" />
+          <label style={s.label}>价值观与原则</label>
+          <textarea style={s.textarea} value={cfg.persona.values} onChange={(e) => setP('values', e.target.value)} placeholder="例如：以主人利益为先；诚实有据、不编造。" />
+          <label style={s.label}>决策与做事方式</label>
+          <textarea style={s.textarea} value={cfg.persona.rules} onChange={(e) => setP('rules', e.target.value)} placeholder="例如：先听清需求再行动；能代办的代办，不确定的先确认。" />
+          <label style={s.label}>边界与转人工</label>
+          <textarea style={s.textarea} value={cfg.persona.escalation} onChange={(e) => setP('escalation', e.target.value)} placeholder="例如：涉及金钱/对外承诺/对外发布时转主人。" />
+          <label style={s.label}>禁忌</label>
+          <textarea style={s.textarea} value={cfg.persona.avoid} onChange={(e) => setP('avoid', e.target.value)} placeholder="例如：不擅自对外承诺、不替主人做主决定。" />
         </div>
       )}
 
-      {history.length > 0 && (
-        <div style={s.hint}>
-          历史版本（最近 {history.length} 个）：{history.map((v) => (
-            <button key={v.index} style={{ ...s.ghost, padding: '2px 8px', fontSize: '12px', margin: '0 4px 4px 0' }} onClick={() => restoreVersion(v.index)}>
-              恢复 {new Date(v.ts).toLocaleString()}
-            </button>
-          ))}
+      {tab === 'knowledge' && (
+        <div style={s.section}>
+          <div style={s.secTitle}>知识（共享记忆种子）</div>
+          <label style={s.label}>记忆（每行一条）</label>
+          <textarea
+            style={{ ...s.textarea, minHeight: '80px' }}
+            value={(cfg.knowledge?.seeds ?? []).join('\n')}
+            onChange={(e) => setCfg((prev) => ({ ...prev, knowledge: { seeds: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean) } }))}
+            placeholder={'例如：\n我是某公司研发负责人\n我们项目用 TypeScript\n每周五下午开周会'}
+          />
+          <label style={{ ...s.ghost, display: 'inline-block', marginTop: '8px' }}>
+            导入知识文件(.txt/.md)
+            <input type="file" accept=".txt,.md,.markdown,text/plain" style={{ display: 'none' }} onChange={handleImportKnowledge} />
+          </label>
+        </div>
+      )}
+
+      {tab === 'monitor' && (
+        <div style={s.section}>
+          <div style={s.secTitle}>运行监控</div>
+          {monitor ? (
+            <div style={s.hint}>
+              会话 {monitor.sessionCount}（分身 {monitor.twinSessionCount}）· Turns {monitor.turns} · Steps {monitor.steps} · 错误 {monitor.errors}（{Math.round(monitor.errorRate * 100)}%）· LLM 耗时 {Math.round(monitor.llmMs / 1000)}s
+              <br />
+              Tokens：输入 {monitor.tokens.input} · 输出 {monitor.tokens.output} · 缓存读 {monitor.tokens.cacheRead} · 缓存写 {monitor.tokens.cacheWrite}
+            </div>
+          ) : (
+            <div style={s.hint}>暂无监控数据（使用分身会话后出现）。</div>
+          )}
+        </div>
+      )}
+
+      {tab === 'history' && (
+        <div style={s.section}>
+          <div style={s.secTitle}>历史版本</div>
+          {history.length > 0 ? (
+            <div style={s.hint}>
+              最近 {history.length} 个：{history.map((v) => (
+                <button key={v.index} style={{ ...s.ghost, padding: '2px 8px', fontSize: '12px', margin: '0 4px 4px 0' }} onClick={() => restoreVersion(v.index)}>
+                  恢复 {new Date(v.ts).toLocaleString()}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={s.hint}>暂无历史版本（保存过「分身设置」会生成）。</div>
+          )}
         </div>
       )}
 
