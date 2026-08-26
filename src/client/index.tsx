@@ -145,13 +145,15 @@ function TwinSettingsPage() {
     reader.onload = () => {
       try {
         const text = String(reader.result || '')
-        const lines = text.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+        // 文档按「空行分段」切块（比一行一条更符合语义）；无空行时回落为按行。
+        const paras = text.split(/\r?\n\s*\r?\n/).map((x) => x.trim()).filter(Boolean)
+        const chunks = paras.length > 1 ? paras : text.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
         setCfg((prev) => {
           const set = new Set(prev.knowledge?.seeds ?? [])
-          for (const l of lines) if (!set.has(l)) set.add(l)
+          for (const c of chunks) if (!set.has(c)) set.add(c)
           return { ...prev, knowledge: { seeds: [...set] } }
         })
-        setStatus(`已从 ${file.name} 导入 ${lines.length} 条知识种子（请点“保存并生效”写入记忆库）`)
+        setStatus(`已从 ${file.name} 导入 ${chunks.length} 条知识块（请点“保存并生效”写入记忆库）`)
       } catch (err) {
         setStatus('导入失败：' + String(err))
       }
