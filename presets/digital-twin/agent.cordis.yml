@@ -10,6 +10,11 @@
     text: >-
       你是 {{model}} 驱动的数字分身。
 
+# 共享记忆工具：主人经「分身设置」写入的知识种子存在 dsh-memory，
+# 分身没有这个工具就读不到自己被喂的知识（曾致知识功能单向失效）。
+- id: tool-memory
+  name: '@dsh-extra/dsh-memory/tools'
+
 - id: tool-jobs
   name: '@deepseek-ai/dsh-tool-jobs'
 

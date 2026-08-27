@@ -31,6 +31,7 @@ type Config = {
   identity: { name: string; role: string; background: string }
   persona: { tone: string; style: string; values: string; rules: string; escalation: string; avoid: string }
   knowledge: { seeds: string[] }
+  becomeDefaultPreset?: boolean
 }
 
 const TONES = [
@@ -49,6 +50,34 @@ const PRESETS = [
 
 const emptyConfig: Config = PRESETS[0].config as Config
 
+/** 模型降级链状态卡：探测 dsh-model-failover 是否已装/已配链（套餐超限自动切换）。 */
+function FailoverCard() {
+  const [state, setState] = useState<'checking' | 'missing' | 'unconfigured' | 'ok'>('checking')
+  useEffect(() => {
+    let alive = true
+    fetch('/model-failover/api/status')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d) => {
+        if (!alive) return
+        const entries = d?.status?.entries ?? []
+        setState(Array.isArray(entries) && entries.length > 0 ? 'ok' : 'unconfigured')
+      })
+      .catch(() => { if (alive) setState('missing') })
+    return () => { alive = false }
+  }, [])
+  if (state === 'missing') return null
+  return (
+    <div style={{ ...s.hint, marginTop: 8 }}>
+      模型降级链：
+      {state === 'ok' && '已配置（套餐超限/余额不足时按链自动切换，窗口重置自动切回）'}
+      {state === 'unconfigured' && (
+        <>未配置——分身在模型套餐超限时会直接报错。建议在「设置 → 模型切换」配置降级链。</>
+      )}
+      {state === 'checking' && '检测中…'}
+    </div>
+  )
+}
+
 async function api(path: string, method = 'GET', body?: unknown) {
   const opts: RequestInit = { method, headers: { Accept: 'application/json' } }
   if (body) {
@@ -56,7 +85,10 @@ async function api(path: string, method = 'GET', body?: unknown) {
     opts.body = JSON.stringify(body)
   }
   const res = await fetch(path, opts)
-  return res.json()
+  const data = await res.json().catch(() => ({ ok: false, error: `HTTP ${res.status}` }))
+  // 非 2xx 时后端返回 {ok:false,...}；res.json() 失败（如代理错误页）也要给出可读错误
+  if (!res.ok && data.ok !== false) return { ok: false, error: `HTTP ${res.status}` }
+  return data
 }
 
 function TwinSettingsPage() {
@@ -119,15 +151,30 @@ function TwinSettingsPage() {
   function applyPreset(id: string) {
     const preset = PRESETS.find((p) => p.id === id)
     if (!preset) return
+    // 模板切换保护：已填内容会被覆盖，必须确认——否则是用户必然归因为 bug 的数据丢失
+    const hasInput =
+      cfg.identity.name.trim() !== '' ||
+      cfg.identity.role.trim() !== '' ||
+      cfg.identity.background.trim() !== '' ||
+      cfg.persona.style.trim() !== '' ||
+      cfg.persona.values.trim() !== '' ||
+      cfg.persona.rules.trim() !== '' ||
+      cfg.persona.escalation.trim() !== '' ||
+      cfg.persona.avoid.trim() !== '' ||
+      (cfg.knowledge?.seeds ?? []).some((s) => s.trim() !== '')
+    if (hasInput && !window.confirm('套用模板会覆盖当前已填的人格字段与知识种子，确定继续吗？')) return
     setCfg((prev) => ({
       ...preset.config,
       template: id,
       identity: { ...prev.identity, ...preset.config.identity },
       persona: { ...prev.persona, ...preset.config.persona },
-      knowledge: { ...(prev.knowledge ?? { seeds: [] }), seeds: preset.config.knowledge.seeds },
+      // 知识种子合并去重（模板种子 + 已有种子），而不是整体替换
+      knowledge: {
+        seeds: [...new Set([...(preset.config.knowledge.seeds ?? []), ...((prev.knowledge?.seeds ?? []) as string[])])],
+      },
     }))
     setToolHint(preset.toolHint)
-    setStatus(`已套用模板：${preset.label}`)
+    setStatus(`已载入模板：${preset.label}（尚未保存，点「保存并生效」后应用）`)
   }
 
   async function handleSave() {
@@ -139,6 +186,7 @@ function TwinSettingsPage() {
         setCfg({ ...emptyConfig, ...d.config })
         const mem = d.memory && d.memory.seeded > 0 ? `（已写入 ${d.memory.seeded} 条共享记忆）` : ''
         setStatus(`已保存${mem}`)
+        refreshPreview()
       } else {
         setStatus('保存失败：' + (d.error || '未知错误'))
       }
@@ -146,6 +194,19 @@ function TwinSettingsPage() {
       setStatus('保存失败：' + String(e))
     }
     setSaving(false)
+  }
+
+  // 预览实际注入 system prompt 的人格段 + 安全边界段（保存闭环：调完立刻看到生效内容）
+  const [preview, setPreview] = useState<{ persona: string; guard: string } | null>(null)
+  async function refreshPreview() {
+    try {
+      const d = await api('/dsh-twin/preview', 'GET')
+      if (d.ok) setPreview({ persona: d.persona ?? '', guard: d.guard ?? '' })
+    } catch { /* 预览失败静默 */ }
+  }
+  function handlePreviewToggle() {
+    if (preview) { setPreview(null); return }
+    void refreshPreview()
   }
 
   function handleExport() {
@@ -163,10 +224,11 @@ function TwinSettingsPage() {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = async () => {
-      try {
-        const data = JSON.parse(String(reader.result))
-        setCfg({ ...emptyConfig, ...data })
+  reader.onload = async () => {
+    try {
+      const data = JSON.parse(String(reader.result))
+      if (!window.confirm('导入会用文件内容覆盖当前「分身设置」。人格文本将被原样注入系统提示词——请勿导入来路不明的文件。确定继续吗？')) return
+      setCfg({ ...emptyConfig, ...data })
         // 直接保存到宿主，让配置立即生效
         const d = await api('/dsh-twin/config', 'POST', { ...emptyConfig, ...data })
         setStatus(d.ok ? '已导入并生效' : '导入失败：' + (d.error || '未知错误'))
@@ -312,6 +374,7 @@ function TwinSettingsPage() {
           ) : (
             <div style={s.hint}>暂无监控数据（使用分身会话后出现）。</div>
           )}
+          <FailoverCard />
         </div>
       )}
 
@@ -338,14 +401,38 @@ function TwinSettingsPage() {
         </div>
       )}
 
+      <label style={{ ...s.hint, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={cfg.becomeDefaultPreset === true}
+          onChange={(e) => setCfg((prev) => ({ ...prev, becomeDefaultPreset: e.target.checked }))}
+        />
+        把「数字分身」设为默认 agent 预设
+      </label>
+      {cfg.becomeDefaultPreset === true && (
+        <div style={{ ...s.hint, color: '#c47f17' }}>
+          ⚠ 勾选后所有新会话（含你自己的日常工作会话）都将使用 conversation-first
+          分身预设（无 shell / 文件系统直操工具）。若你主要在网页端做开发工作，
+          建议不勾选，改为在「手机连接 → im-channel 设置」里配置 agentPreset: digital-twin，
+          只让企微会话走分身人格。
+        </div>
+      )}
+
       <div style={s.row}>
         <button style={s.btn} disabled={!loaded || saving} onClick={handleSave}>{saving ? '保存中…' : '保存并生效'}</button>
+        <button style={s.ghost} onClick={handlePreviewToggle}>{preview ? '收起预览' : '预览注入的人格'}</button>
         <button style={s.ghost} onClick={handleExport}>导出人格</button>
         <label style={s.ghost}>
           导入人格
           <input type="file" accept="application/json" style={{ display: 'none' }} onChange={handleImport} />
         </label>
       </div>
+      {preview && (
+        <pre style={{ ...s.hint, whiteSpace: 'pre-wrap', background: 'rgba(127,127,127,0.12)', padding: 10, borderRadius: 8, maxHeight: 260, overflow: 'auto' }}>
+          {preview.persona || '（人格为空：名字/风格等字段全空时不注入人格段）'}
+          {preview.guard ? `\n\n${preview.guard}` : ''}
+        </pre>
+      )}
       {status && <div style={s.status}>{status}</div>}
     </div>
   )
