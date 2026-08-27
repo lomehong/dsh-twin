@@ -359,6 +359,10 @@ function TwinSettingsPage() {
             导入知识文件(.txt/.md)
             <input type="file" accept=".txt,.md,.markdown,text/plain" style={{ display: 'none' }} onChange={handleImportKnowledge} />
           </label>
+          <div style={{ ...s.hint, marginTop: 10 }}>
+            此处编辑的是「种子」；保存后写入共享记忆库。要查看 / 编辑 / 删除已入库的
+            单条记忆（含分身对话中沉淀的记忆），请到左侧「记忆」标签页（dsh-memory 提供）。
+          </div>
         </div>
       )}
 
