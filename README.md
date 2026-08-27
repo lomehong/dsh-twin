@@ -68,7 +68,18 @@ dsh plugin --profile web add git+https://github.com/lomehong/dsh-twin.git   # �
 
 ## 与其它插件的关系
 
-- `dsh-memory`：共享记忆（知识层）。dsh-twin 在保存知识时写入它。
+- `dsh-memory`：共享记忆（知识层）。dsh-twin 在保存知识时写入它；digital-twin
+  预设挂载 `tool-memory` 工具行，分身会话可读取这些知识。
+- `im-channel`（建议 ≥ 含 `agentPreset` 配置的版本）：企业微信通道。推荐在
+  settings.yaml 的 `im-channel:` 节配置 `agentPreset: digital-twin`——这把
+  IM 会话的人格与「全局默认预设」解耦：主人网页端日常会话保持 standard
+  （完整 shell/文件工具），企微侧稳定走分身预设。若不配置，也可以在分身
+  设置里勾选「设为默认预设」，但那会影响你自己的所有新会话（见勾选框旁
+  的警示说明）。
+- `dsh-yuyi`（可选）：已安装时，digital-twin 预设会自动追加御驿工具行，
+  分身可经 Hub 跨设备通信。
+- `dsh-model-failover`（可选）：装上后对分身自动生效（机制层），但需在
+  「设置 → 模型切换」配置降级链才会启用；分身设置的「监控」页有状态卡。
 - `dsh-persona-guide`（可选）：分身搭建指引文档查看器，独立于本插件。
 
 ## 开发
