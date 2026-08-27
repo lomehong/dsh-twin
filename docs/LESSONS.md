@@ -39,3 +39,25 @@
 - 教训：直接改 `node_modules/@dsh-extra/<上游包>/lib`（如 im-channel）只在**本机安装副本**生效，
   **重装/更新会被覆盖**。要持久，须把改动**收进上游仓库**（fork/patch/PR）。
 - 改上游前先确认它的依赖/API（第 1 条就是反例）。
+
+## 8. systemPrompt.section 的 text 回调里拿不到「对话者身份」
+- 教训：`AssembleContext` 只有 `scope` 和 `signal` 两个字段（dsh-system-prompt 类型原文），
+  **没有 user/actor/session 信息**。想在人格段里区分主人/访客（双视图人格），
+  在 section 的 text 回调里做不到。
+- 既定模式是「驱动器挂载时带身份」：im-channel driver 在 agent setup 里显式调
+  `mountSharedMemory(agentCtx, userId, isMaster)`——按角色注入必须走同一条路。
+- 双视图的正确实现路径（未实施）：im-channel driver 在 setup 里调用 dsh-twin 服务
+  的钩子（如 `twin.mountPersonaSection(agentCtx, { isMaster })`）按角色挂载人格段，
+  同时 dsh-twin 全局 section 需退位避免双人格。跨仓库改动 + 需真机 IM 回归验证。
+
+## 9. peerDependencies 版本范围对 rc 包必须是 rc 可满足的
+- 教训：`">=0.1.0"` 对 registry 上的 `0.1.0-rc.x` **不可满足**（semver 里 prerelease
+  小于正式版），裸 `npm install` 直接 notarget 失败。
+- 正确写法：`">=0.1.0-rc.0"` 这类 rc 起点范围；仓库再加 `.npmrc` 的
+  `legacy-peer-deps=true`（工作区惯例）双保险。
+
+## 10. 写测试不必等 TS 迁移：直接对 ESM 构建产物测
+- 教训：vitest 可以直接 `import '../lib/index.js'`（ESM JS），配合每个用例把
+  `DSH_HOME` 设到 `mkdtempSync` 临时目录隔离，就能对宿主端全量行为（持久化/原子写/
+  版本化/纯函数）建立回归保护。
+- TS 迁移因此可以放慢节奏单独做，不被"没有测试就不敢重构"绑架。
