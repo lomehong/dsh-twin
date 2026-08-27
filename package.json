@@ -12,6 +12,9 @@
     "./client": {
       "default": "./lib/client.js"
     },
+    "./tools": {
+      "default": "./lib/tools.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -35,17 +38,19 @@
     }
   },
   "scripts": {
-    "build:client": "node scripts/build-client.mjs"
+    "build:client": "node scripts/build-client.mjs",
+    "test": "vitest run"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": ">=0.1.0",
-    "@deepseek-ai/dsh-agent-presets": ">=0.1.0",
-    "@deepseek-ai/dsh-settings": ">=0.1.0",
-    "@deepseek-ai/dsh-system-prompt": ">=0.1.0"
+    "@deepseek-ai/cordis": ">=4.0.0-rc.0",
+    "@deepseek-ai/dsh-agent-presets": ">=0.1.0-rc.0",
+    "@deepseek-ai/dsh-settings": ">=0.1.0-rc.0",
+    "@deepseek-ai/dsh-system-prompt": ">=0.0.1-rc.0"
   },
   "devDependencies": {
     "@types/react": "~18.3.1",
     "esbuild": "^0.25.12",
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "vitest": "^3.0.0"
   }
 }

@@ -15,6 +15,11 @@
 - id: tool-memory
   name: '@dsh-extra/dsh-memory/tools'
 
+# 转人工：把「边界与转人工」人格字段从提示词承诺变成真实能力——
+# 遇到权限不足/敏感操作/投诉时真正经 IM 通知主人。
+- id: tool-twin-escalate
+  name: '@dsh-extra/dsh-twin/tools'
+
 - id: tool-jobs
   name: '@deepseek-ai/dsh-tool-jobs'
 
