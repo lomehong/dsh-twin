@@ -235,3 +235,29 @@ describe('escalateToOwner（转人工通知）', () => {
     expect(r.error).toContain('发送失败')
   })
 })
+
+describe('renderPersona 双视图', () => {
+  const cfgWithPrivate = {
+    template: 'custom',
+    identity: { name: '小七', role: '助理', background: '主人是研发负责人' },
+    persona: { tone: 'professional', style: '', values: '诚实第一', rules: '先结论后依据', escalation: '投诉转主人', avoid: '' },
+    knowledge: { seeds: [] },
+  }
+
+  it('主人视图（默认）含 background/values', async () => {
+    const { renderPersona } = await import('../lib/index.js')
+    const full = renderPersona(cfgWithPrivate)
+    expect(full).toContain('研发负责人')
+    expect(full).toContain('诚实第一')
+  })
+
+  it('访客视图剔除 background/values，保留公共字段', async () => {
+    const { renderPersona } = await import('../lib/index.js')
+    const guest = renderPersona(cfgWithPrivate, { guestView: true })
+    expect(guest).not.toContain('研发负责人')
+    expect(guest).not.toContain('诚实第一')
+    expect(guest).toContain('「小七」')
+    expect(guest).toContain('助理')
+    expect(guest).toContain('投诉转主人')
+  })
+})
