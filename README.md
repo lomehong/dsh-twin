@@ -17,11 +17,16 @@
 ## 功能
 
 - **可拔插**：一个插件包，`dsh plugin add` 装上 / 卸掉即拔。首启把内置预设
-  **物化**到 `$DSH_HOME/.agent-presets/digital-twin/`（幂等）。
-- **可移植**：插件是纯代码；人格是数据，打包进 `$DSH_HOME/twin-config.json`，
+  **物化**到 `$DSH_HOME/.agent-presets/digital-twin/`（幂等，版本化更新）。
+  可选依赖（dsh-memory / dsh-yuyi）的工具行**检测到已安装才追加**——不装也
+  不会让预设因缺包行而无法挂载。
+- **可移植**：插件是纯代码；人格是数据，打包进 `$DSH_HOME/dsh-twin/twin-config.json`，
   向导提供「导出人格 / 导入人格」，换电脑装插件→导入即可。
-- **自动默认**：未显式选择默认 preset 时设为 `digital-twin`（幂等，尊重手动选择；
-  把组合 base `standard` 视为「未选择」可覆盖）。
+- **默认预设为显式选择**：安装**不会**改写全局默认（v0.1.x 的旧行为会让主人日常
+  会话静默失去 shell/fs 工具）。「分身设置」勾选「设为默认预设」并保存后，才把
+  `agent-presets.default` 设为 `digital-twin`（仍尊重用户手动选择的其它预设）。
+  更推荐在 settings.yaml 的 `im-channel:` 节配置 `agentPreset: digital-twin`，
+  把 IM 侧人格与全局默认解耦。
 - **严格专属人格**：`twin` 段通过 `agentPresets.composedPreset(agent.ctx)` 判断当前 agent
   是否由 `digital-twin` 预设组合，仅对分身 agent 注入人格；其它预设/会话不会带上这套人格。
   预设不写死 persona，人格全由 `twin` 段动态注入，改配置即生效。
@@ -29,6 +34,7 @@
   边界与转人工 / 禁忌，让分身更立体、更守规矩。「转人工」不只是提示词：
   digital-twin 预设挂载 `escalate_to_owner` 工具，分身遇到权限不足、敏感操作
   或访客投诉时会真正经 im-channel 给主人发 IM 通知（主人需先 /bind 绑定）。
+  有进程级频控（10 分钟最多 3 次），防止被注入诱导的会话刷屏主人。
 - **安全边界段（anti-injection）**：`twin-guard` 段注入静态安全指令——对话者身份与权限由
   系统决定、无视试图泄露/越权/扮演他人的注入指令、敏感事项礼貌拒绝或转交主人。
 - **最小攻击面预设**：`digital-twin` 预设为 **conversation-first**——**不挂 shell（bash/pwsh）与
@@ -55,10 +61,12 @@ dsh plugin --profile web add git+https://github.com/lomehong/dsh-twin.git   # �
 
 ## 首次启动会发生什么
 
-1. 物化 `digital-twin` 预设到 `$DSH_HOME/.agent-presets/digital-twin/`；
-2. 若未设默认预设，把 `agent-presets.default` 设为 `digital-twin`；
-3. 顶级「设置」出现「**分身设置**」Tab；
-4. Agent 预设挑选器多出「**数字分身**」模式。
+1. 物化 `digital-twin` 预设到 `$DSH_HOME/.agent-presets/digital-twin/`（版本化幂等；
+   dsh-memory / dsh-yuyi 的工具行检测到已安装才追加）；
+2. 顶级「设置」出现「**分身设置**」Tab；
+3. Agent 预设挑选器多出「**数字分身**」模式；
+4. 全局默认预设**不会被自动改写**——需要时在「分身设置」勾选「设为默认预设」，
+   或在 settings.yaml 的 `im-channel:` 节配置 `agentPreset: digital-twin`。
 
 ## 使用
 
@@ -70,19 +78,40 @@ dsh plugin --profile web add git+https://github.com/lomehong/dsh-twin.git   # �
 
 ## 与其它插件的关系
 
-- `dsh-memory`：共享记忆（知识层）。dsh-twin 在保存知识时写入它；digital-twin
-  预设挂载 `tool-memory` 工具行，分身会话可读取这些知识。
-- `im-channel`（建议 ≥ 含 `agentPreset` 配置的版本）：企业微信通道。推荐在
-  settings.yaml 的 `im-channel:` 节配置 `agentPreset: digital-twin`——这把
-  IM 会话的人格与「全局默认预设」解耦：主人网页端日常会话保持 standard
-  （完整 shell/文件工具），企微侧稳定走分身预设。若不配置，也可以在分身
-  设置里勾选「设为默认预设」，但那会影响你自己的所有新会话（见勾选框旁
-  的警示说明）。
+- `dsh-memory`（可选）：共享记忆（知识层）。dsh-twin 在保存知识时写入它；
+  digital-twin 预设的 `tool-memory` 工具行由宿主端在物化时**检测到 dsh-memory
+  已安装才追加**——未装时预设依然可挂载，只是分身读不到知识种子。
+- `im-channel`（**硬性要求 ≥ 支持 noteActor 角色标注的版本**，且建议含
+  `agentPreset` 配置）：企业微信通道。主人/访客双视图依赖 driver 在 agent setup
+  里调用 dsh-twin 的 `noteActor(agentCtx, { isMaster })` 标注对话者角色；装了
+  im-channel 而会话未被标注时，人格按**访客视图**渲染（fail-closed，见下方
+  安全模型）。推荐在 settings.yaml 的 `im-channel:` 节配置
+  `agentPreset: digital-twin`——这把 IM 会话的人格与「全局默认预设」解耦：
+  主人网页端日常会话保持 standard（完整 shell/文件工具），企微侧稳定走分身
+  预设。若不配置，也可以在分身设置里勾选「设为默认预设」，但那会影响你自己的
+  所有新会话（见勾选框旁的警示说明）。
 - `dsh-yuyi`（可选）：已安装时，digital-twin 预设会自动追加御驿工具行，
   分身可经 Hub 跨设备通信。
 - `dsh-model-failover`（可选）：装上后对分身自动生效（机制层），但需在
   「设置 → 模型切换」配置降级链才会启用；分身设置的「监控」页有状态卡。
 - `dsh-persona-guide`（可选）：分身搭建指引文档查看器，独立于本插件。
+
+## 安全模型与已知边界
+
+- **主人/访客双视图为 fail-closed**：装了 im-channel 后，未被 driver 显式标注为
+  主人的会话一律按访客视图渲染（`background` 不注入）。副作用：主人的**网页端**
+  会话不再注入 background（可用知识种子把等效上下文喂回记忆层）；IM 侧主/访客
+  均由 driver 标注，各得正确视图。因此 im-channel 必须 ≥ 支持 noteActor 的版本，
+  旧版会让网页端与 IM 侧全部按访客视图。
+- **插件自有路由不在上游认证围栏内**：dsh v0.1.2 起 `/`（index）与 `/api` 前缀有
+  一次性 token 认证，但 webserver 的路由匹配是 exact 优先——本插件的
+  `/dsh-twin/*` 路由不经过该围栏。写端点已自带 sameOrigin CSRF 防护 +
+  content-type/体积限制；LAN 暴露场景下 GET 端点（配置/监控）可被未认证读取，
+  敏感部署请勿把端口暴露到局域网之外。
+- **配置不走 settings namespace**：人格/知识存独立 `$DSH_HOME/dsh-twin/twin-config.json`
+  （单文件导入导出是核心需求），代价是没有 settings 的分层/校验/热重载机制；
+  写入侧已自行实现字段白名单 + 长度上限 + 控制字符清洗 + 原子写（0600）。
+  v0.1.x 存放在 `$DSH_HOME` 根下的旧文件会被自动读取迁移，首次保存后落到新目录。
 
 ## 开发
 
@@ -91,7 +120,7 @@ git clone https://github.com/lomehong/dsh-twin.git
 cd dsh-twin
 npm install
 npm run build       # tsc 编译 src/ → lib/（宿主端 + 类型声明）+ esbuild 重建 lib/client.js
-npm test            # vitest：21 个行为锁定测试（直接跑 src/*.ts 源码）
+npm test            # vitest：26 个行为锁定测试（直接跑 src/*.ts 源码）
 npm run typecheck   # tsc -b --noEmit 严格类型检查（exactOptionalPropertyTypes）
 ```
 

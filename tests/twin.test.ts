@@ -70,18 +70,30 @@ describe('配置持久化与版本化', () => {
     const { saveConfig, loadConfig, normalizeConfigInput } = await import('../src/index.ts')
     saveConfig(normalizeConfigInput({ identity: { name: '小七' } }))
     expect(loadConfig().identity.name).toBe('小七')
-    expect(existsSync(join(home, 'twin-config.json'))).toBe(true)
+    expect(existsSync(join(home, 'dsh-twin', 'twin-config.json'))).toBe(true)
     // 无 tmp 残留
     expect(readdirSync(home).some((f) => f.includes('.tmp-'))).toBe(false)
   })
 
+  it('v0.1.x 根目录旧配置自动迁移：读取回退，保存后落新路径', async () => {
+    const mod = await import('../src/index.ts')
+    mkdirSync(home, { recursive: true })
+    writeFileSync(join(home, 'twin-config.json'), JSON.stringify({ identity: { name: '老档案' } }), 'utf8')
+    expect(mod.loadConfig().identity.name).toBe('老档案')
+    // 保存走新路径，旧文件原样保留（用户可自行清理）
+    mod.saveConfig(mod.normalizeConfigInput({ identity: { name: '新档' } }))
+    expect(existsSync(join(home, 'dsh-twin', 'twin-config.json'))).toBe(true)
+    expect(mod.loadConfig().identity.name).toBe('新档')
+    expect(JSON.parse(readFileSync(join(home, 'twin-config.json'), 'utf8')).identity.name).toBe('老档案')
+  })
+
   it('坏 JSON 回落默认并保留旧文件内容直到下次保存', async () => {
     const { loadConfig } = await import('../src/index.ts')
-    mkdirSync(home, { recursive: true })
-    writeFileSync(join(home, 'twin-config.json'), '{broken json', 'utf8')
+    mkdirSync(join(home, 'dsh-twin'), { recursive: true })
+    writeFileSync(join(home, 'dsh-twin', 'twin-config.json'), '{broken json', 'utf8')
     const cfg = loadConfig()
     expect(cfg.template).toBe('custom')
-    expect(readFileSync(join(home, 'twin-config.json'), 'utf8')).toBe('{broken json')
+    expect(readFileSync(join(home, 'dsh-twin', 'twin-config.json'), 'utf8')).toBe('{broken json')
   })
 
   it('restoreHistory 恢复前先归档当前版本（连续恢复不丢中间态）', async () => {
@@ -122,27 +134,44 @@ describe('配置持久化与版本化', () => {
 })
 
 describe('materializePreset 版本戳', () => {
-  it('首启物化；二次调用幂等；预设文件包含 tool-memory 与（yuyi 缺席时无）tool-yuyi', async () => {
+  it('首启物化；二次调用幂等；可选依赖行按安装状态追加', async () => {
     const { materializePreset } = await import('../src/index.ts')
-    const first = materializePreset()
+    // 测试环境探测不到 dsh-memory / dsh-yuyi → 都不追加（未装缺包行 = 预设可挂载）
+    const first = materializePreset({ memory: false, yuyi: false })
     expect(first.materialized).toBe(true)
     const yml = readFileSync(join(first.dir, 'agent.cordis.yml'), 'utf8')
-    expect(yml).toContain('@dsh-extra/dsh-memory/tools')
+    expect(yml).not.toContain('@dsh-extra/dsh-memory/tools')
+    expect(yml).not.toContain('dsh-yuyi/tools')
     expect(yml).toContain('@dsh-extra/dsh-twin/tools')
-    const second = materializePreset()
+    const second = materializePreset({ memory: false, yuyi: false })
     expect(second.materialized).toBe(false)
     // 版本戳存在
     expect(readFileSync(join(first.dir, '.materialized-version'), 'utf8').trim()).toBeTruthy()
   })
 
-  it('版本号变化时覆盖更新并保留 .bak', async () => {
+  it('检测到已安装的可选依赖才追加对应工具行', async () => {
     const { materializePreset } = await import('../src/index.ts')
-    const first = materializePreset()
-    // 手工改版本戳模拟"插件升级"
+    const r = materializePreset({ memory: true, yuyi: true })
+    const yml = readFileSync(join(r.dir, 'agent.cordis.yml'), 'utf8')
+    expect(yml).toContain("@dsh-extra/dsh-memory/tools")
+    expect(yml).toContain("dsh-yuyi/tools")
+    // 重复物化不产生重复行（版本戳相同 → 幂等；换版本重物化也按 includes 去重）
+    const again = materializePreset({ memory: true, yuyi: true })
+    expect(again.materialized).toBe(false)
+  })
+
+  it('版本号变化时覆盖更新并保留 .bak；旧版本里的可选行在依赖缺席时被清除', async () => {
+    const { materializePreset } = await import('../src/index.ts')
+    // 先物化出带 memory 行的 v 当前版
+    const first = materializePreset({ memory: true, yuyi: false })
+    expect(readFileSync(join(first.dir, 'agent.cordis.yml'), 'utf8')).toContain('@dsh-extra/dsh-memory/tools')
+    // 手工改版本戳模拟"插件升级"，且依赖状态变为缺席
     writeFileSync(join(first.dir, '.materialized-version'), '0\n', 'utf8')
-    const second = materializePreset()
+    const second = materializePreset({ memory: false, yuyi: false })
     expect(second.materialized).toBe(true)
     expect(existsSync(join(first.dir, 'agent.cordis.yml.bak'))).toBe(true)
+    const yml = readFileSync(join(first.dir, 'agent.cordis.yml'), 'utf8')
+    expect(yml).not.toContain('@dsh-extra/dsh-memory/tools')
     expect(readFileSync(join(first.dir, '.materialized-version'), 'utf8').trim()).not.toBe('0')
   })
 })
@@ -178,6 +207,21 @@ describe('renderPersona', () => {
 })
 
 describe('escalateToOwner（转人工通知）', () => {
+  beforeEach(async () => {
+    const { resetEscalateThrottle } = await import('../src/tools.ts')
+    resetEscalateThrottle()
+  })
+
+  const masterCtx = (pushToUser: (kind: string, userId: string, text: string) => Promise<boolean> | boolean) => ({
+    get(name: string) {
+      if (name !== 'im-channel') return undefined
+      return {
+        botsStatus: () => [{ kind: 'wecom', bindings: [{ userId: 'boss', isMaster: true }] }],
+        pushToUser: pushToUser,
+      }
+    },
+  })
+
   it('im-channel 缺席时明确报错而非崩溃', async () => {
     const { escalateToOwner } = await import('../src/tools.ts')
     const r = await escalateToOwner({} as never, { reason: '需要主人决策' })
@@ -233,6 +277,47 @@ describe('escalateToOwner（转人工通知）', () => {
     const r = await escalateToOwner(ctx as never, { reason: 'x' })
     expect(r.ok).toBe(false)
     expect(r.error).toContain('发送失败')
+  })
+
+  it('频控：窗口内超过 3 次后拒绝，防止（被诱导的）会话刷屏主人', async () => {
+    const { escalateToOwner } = await import('../src/tools.ts')
+    const ctx = masterCtx(async () => true) as never
+    for (let i = 0; i < 3; i++) {
+      const r = await escalateToOwner(ctx, { reason: `第 ${i + 1} 次` })
+      expect(r.ok).toBe(true)
+    }
+    const r4 = await escalateToOwner(ctx, { reason: '第 4 次' })
+    expect(r4.ok).toBe(false)
+    expect((r4 as { error: string }).error).toContain('过于频繁')
+    // 绑定缺失不计入频控（未到达推送阶段）
+    const { resetEscalateThrottle: reset } = await import('../src/tools.ts')
+    reset()
+    const noBinding = {
+      get: () => ({ botsStatus: () => [{ kind: 'wecom', bindings: [] }], pushToUser: async () => true }),
+    }
+    const r0 = await escalateToOwner(noBinding as never, { reason: 'x' })
+    expect(r0.ok).toBe(false)
+    expect((r0 as { error: string }).error).toContain('/bind')
+    // 计数未被 noBinding 消耗：重置后仍可正常推送 3 次
+    reset()
+    const ok = await escalateToOwner(masterCtx(async () => true) as never, { reason: '重置后' })
+    expect(ok.ok).toBe(true)
+  })
+})
+
+describe('resolveGuestView（主人/访客视图判定，fail-closed）', () => {
+  it('未装 im-channel：一律主人视图（纯网页部署无访客入口）', async () => {
+    const { resolveGuestView } = await import('../src/index.ts')
+    expect(resolveGuestView({ imChannelInstalled: false })).toBe(false)
+    expect(resolveGuestView({ imChannelInstalled: false, actorIsMaster: false })).toBe(false)
+    expect(resolveGuestView({ imChannelInstalled: false, actorIsMaster: true })).toBe(false)
+  })
+
+  it('装了 im-channel：只有显式标注主人才是主人视图，未标注一律访客视图', async () => {
+    const { resolveGuestView } = await import('../src/index.ts')
+    expect(resolveGuestView({ imChannelInstalled: true, actorIsMaster: true })).toBe(false)
+    expect(resolveGuestView({ imChannelInstalled: true, actorIsMaster: false })).toBe(true)
+    expect(resolveGuestView({ imChannelInstalled: true })).toBe(true)
   })
 })
 

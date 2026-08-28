@@ -1,12 +1,14 @@
 {
   "name": "@dsh-extra/dsh-twin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "可拔插、可移植的数字分身：digital-twin 预设 + 人格层 + 顶级设置向导（人格/知识/模板，导入导出）。人格为数据，插件为纯框架。",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
   "exports": {
     ".": {
+      "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
     "./client": {
@@ -15,6 +17,7 @@
     "./tools": {
       "default": "./lib/tools.js"
     },
+    "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "files": [

@@ -60,8 +60,20 @@ export declare function restoreHistory(index: number): {
 export declare function renderPersona(cfg: Partial<TwinConfig>, { guestView }?: {
     guestView?: boolean;
 }): string;
-/** 把内置预设物化到用户 agent-presets 根（版本化幂等）。返回是否本次写入。 */
-export declare function materializePreset(): MaterializeResult;
+/** 物化时可选中依赖的探测结果（生产环境默认现场探测；测试可注入）。 */
+export interface OptionalDeps {
+    memory: boolean;
+    yuyi: boolean;
+}
+/**
+ * 把内置预设物化到用户 agent-presets 根（版本化幂等）。返回是否本次写入。
+ *
+ * 可选依赖（dsh-memory / dsh-yuyi）的工具行**不写死在预设本体**：行引用的包
+ * 未安装时，上游 agent-presets 的 discovery 会把整份组合判为不可挂载
+ *（"row … names a plugin that cannot be resolved"）。因此这里按安装状态
+ * 逐行追加——装了才有行，没装预设依然可用。
+ */
+export declare function materializePreset(deps?: OptionalDeps): MaterializeResult;
 export declare function ensureDefaultPreset(ctx: Context): void;
 /** 把知识种子写入 dsh-memory（若已安装）；按内容去重。 */
 export declare function seedMemory(ctx: Context, cfg: TwinConfig): Promise<SeedResult>;
@@ -113,4 +125,19 @@ export declare function collectMonitor(ctx: Context): {
         errors: number;
     }[];
 };
+/**
+ * 决定当前会话渲染主人视图还是访客视图（fail-closed）。
+ * - 未安装 im-channel：不存在访客入口（纯网页部署），一律主人视图——否则
+ *   background 对主人也永久不可见，安全收益为零、纯损功能。
+ * - 已安装 im-channel：访客入口存在。只有被 driver 显式标注为主人的会话才
+ *   渲染主人视图；未标注（旧版 im-channel / 未接入 noteActor 的通道）一律
+ *   按访客视图——宁可少注入 background，不可把它泄露给无法证明身份的对话者。
+ *   （im-channel ≥ 含 noteActor 配合的版本时，IM 会话两种角色都会被标注，
+ *   各得正确视图；网页端会话会失去 background 注入，属既定安全取舍，
+ *   主人可用知识种子把等效上下文喂回记忆层。）
+ */
+export declare function resolveGuestView(input: {
+    imChannelInstalled: boolean;
+    actorIsMaster?: boolean | undefined;
+}): boolean;
 export declare function apply(ctx: Context): void;

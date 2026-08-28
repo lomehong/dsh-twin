@@ -25,6 +25,8 @@ export type EscalateResult = {
 };
 export declare const name = "tool-twin-escalate";
 export declare const inject: string[];
+/** 测试钩子：清空频控窗口。 */
+export declare function resetEscalateThrottle(): void;
 /** 经 im-channel 把升级请求推给所有已绑定的主人（跨渠道去重，上限 3 个目标）。 */
 export declare function escalateToOwner(ctx: Context, { reason, detail }: EscalateArgs): Promise<EscalateResult>;
 export declare function apply(ctx: Context): void;

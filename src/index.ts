@@ -219,8 +219,22 @@ function userPresetDir(): string {
   return join(dshHome(), USER_PRESET_ROOT, PRESET_ID)
 }
 
+/** 本插件的专属数据目录（工作区约定：$DSH_HOME/<插件短名>/，不散落在 home 根）。 */
+function pluginDataDir(): string {
+  return join(dshHome(), 'dsh-twin')
+}
+
 function configPath(): string {
+  return join(pluginDataDir(), 'twin-config.json')
+}
+
+/** v0.1.x 的历史路径（$DSH_HOME 根下）。读取时作迁移回退，保存只写新路径。 */
+function legacyConfigPath(): string {
   return join(dshHome(), 'twin-config.json')
+}
+
+function historyPath(): string {
+  return join(pluginDataDir(), 'twin-config-history.json')
 }
 
 export function defaultConfig(): TwinConfig {
@@ -244,9 +258,11 @@ export function defaultConfig(): TwinConfig {
 
 export function loadConfig(): TwinConfig {
   const path = configPath()
-  if (!existsSync(path)) return defaultConfig()
+  // 迁移回退：新路径不存在而 v0.1.x 旧路径存在时读旧文件（首次保存后自然迁到新路径）
+  const source = existsSync(path) ? path : legacyConfigPath()
+  if (!existsSync(source)) return defaultConfig()
   try {
-    const raw = JSON.parse(readFileSync(path, 'utf8')) as Partial<TwinConfig>
+    const raw = JSON.parse(readFileSync(source, 'utf8')) as Partial<TwinConfig>
     const d = defaultConfig()
     return {
       ...d,
@@ -272,9 +288,6 @@ export function saveConfig(cfg: TwinConfig): TwinConfig {
   return loadConfig()
 }
 
-function historyPath(): string {
-  return join(dshHome(), 'twin-config-history.json')
-}
 function twinWarn(...args: unknown[]): void {
   try {
     console.warn('[dsh-twin]', ...args)
@@ -349,7 +362,9 @@ export function renderPersona(cfg: Partial<TwinConfig>, { guestView = false }: {
 
 // 预设内容演进时递增；已物化目录版本与它不一致则覆盖更新（否则插件升级永远
 // 触达不了存量用户——预设成为孤儿副本）。覆盖前把旧文件备份为 *.bak。
-const PRESET_VERSION = '4'
+// v5：tool-memory 行从预设本体移除，改为物化时按 dsh-memory 是否安装条件追加
+//（无条件写死会让未装 dsh-memory 的机器上本预设因行不可解析而无法挂载）。
+const PRESET_VERSION = '5'
 
 /** dsh-yuyi 是否已安装（同 node_modules 内可解析）。装了才给预设追加御驿工具行。 */
 function yuyiAvailable(): boolean {
@@ -361,8 +376,35 @@ function yuyiAvailable(): boolean {
   }
 }
 
-/** 把内置预设物化到用户 agent-presets 根（版本化幂等）。返回是否本次写入。 */
-export function materializePreset(): MaterializeResult {
+/** dsh-memory 是否已安装（同 node_modules 内可解析）。决定是否追加共享记忆工具行。 */
+function memoryAvailable(): boolean {
+  try {
+    createRequire(import.meta.url).resolve('@dsh-extra/dsh-memory/package.json')
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 物化时可选中依赖的探测结果（生产环境默认现场探测；测试可注入）。 */
+export interface OptionalDeps {
+  memory: boolean
+  yuyi: boolean
+}
+
+function detectOptionalDeps(): OptionalDeps {
+  return { memory: memoryAvailable(), yuyi: yuyiAvailable() }
+}
+
+/**
+ * 把内置预设物化到用户 agent-presets 根（版本化幂等）。返回是否本次写入。
+ *
+ * 可选依赖（dsh-memory / dsh-yuyi）的工具行**不写死在预设本体**：行引用的包
+ * 未安装时，上游 agent-presets 的 discovery 会把整份组合判为不可挂载
+ *（"row … names a plugin that cannot be resolved"）。因此这里按安装状态
+ * 逐行追加——装了才有行，没装预设依然可用。
+ */
+export function materializePreset(deps: OptionalDeps = detectOptionalDeps()): MaterializeResult {
   const dir = userPresetDir()
   const stampPath = join(dir, '.materialized-version')
   try {
@@ -380,15 +422,29 @@ export function materializePreset(): MaterializeResult {
     mkdirSync(dir, { recursive: true })
     copyFileSync(PACKAGE_AGENT_CORDIS, join(dir, 'agent.cordis.yml'))
     copyFileSync(PACKAGE_PRESET_YML, join(dir, 'preset.yml'))
-    // dsh-yuyi 已装 → 追加御驿工具行（分身可经 Hub 跨设备通信）；未装不加，避免缺包行
-    if (yuyiAvailable()) {
-      const p = join(dir, 'agent.cordis.yml')
-      let yml = readFileSync(p, 'utf8')
-      if (!yml.includes('dsh-yuyi/tools')) {
-        yml += '\n# 御驿通信工具（dsh-twin 检测到 dsh-yuyi 已安装，自动追加）\n- id: tool-yuyi\n  name: dsh-yuyi/tools\n'
-        writeFileSync(p, yml, { encoding: 'utf8' })
+    // 可选依赖工具行：装了才追加，避免缺包行毁掉整份预设组合
+    const optionalRows: Array<{ detect: boolean; id: string; name: string; comment: string }> = [
+      {
+        detect: deps.memory,
+        id: 'tool-memory',
+        name: '@dsh-extra/dsh-memory/tools',
+        comment: '共享记忆工具（dsh-twin 检测到 dsh-memory 已安装，自动追加）：分身由此读到知识种子',
+      },
+      {
+        detect: deps.yuyi,
+        id: 'tool-yuyi',
+        name: 'dsh-yuyi/tools',
+        comment: '御驿通信工具（dsh-twin 检测到 dsh-yuyi 已安装，自动追加）',
+      },
+    ]
+    const p = join(dir, 'agent.cordis.yml')
+    let yml = readFileSync(p, 'utf8')
+    for (const row of optionalRows) {
+      if (row.detect && !yml.includes(row.name)) {
+        yml += `\n# ${row.comment}\n- id: ${row.id}\n  name: '${row.name}'\n`
       }
     }
+    writeFileSync(p, yml, { encoding: 'utf8' })
     writeFileSync(stampPath, `${PRESET_VERSION}\n`, { encoding: 'utf8' })
     return { materialized: true, dir }
   } catch (error) {
@@ -849,6 +905,22 @@ export function collectMonitor(ctx: Context) {
   }
 }
 
+/**
+ * 决定当前会话渲染主人视图还是访客视图（fail-closed）。
+ * - 未安装 im-channel：不存在访客入口（纯网页部署），一律主人视图——否则
+ *   background 对主人也永久不可见，安全收益为零、纯损功能。
+ * - 已安装 im-channel：访客入口存在。只有被 driver 显式标注为主人的会话才
+ *   渲染主人视图；未标注（旧版 im-channel / 未接入 noteActor 的通道）一律
+ *   按访客视图——宁可少注入 background，不可把它泄露给无法证明身份的对话者。
+ *   （im-channel ≥ 含 noteActor 配合的版本时，IM 会话两种角色都会被标注，
+ *   各得正确视图；网页端会话会失去 background 注入，属既定安全取舍，
+ *   主人可用知识种子把等效上下文喂回记忆层。）
+ */
+export function resolveGuestView(input: { imChannelInstalled: boolean; actorIsMaster?: boolean | undefined }): boolean {
+  if (!input.imChannelInstalled) return false
+  return input.actorIsMaster !== true
+}
+
 export function apply(ctx: Context): void {
   ctx.logger?.info?.('[dsh-twin] 数字分身插件已加载')
 
@@ -862,9 +934,10 @@ export function apply(ctx: Context): void {
   // 3) 人格 + 安全边界注入：仅对「digital-twin 预设」的 agent 渲染。
   //    assemble 的 context 带 context.agent；用 agentPresets.composedPreset(agent.ctx)
   //    判断该 agent 是否由 digital-twin 预设组合。非分身 agent 返回空（空段被丢弃）。
-  //    主人/访客双视图：im-channel driver 在 agent setup 里经 noteActor 标注角色
-  //    （键 = agentCtx，与框架 composedPreset(agent.ctx) 的用法一致）；未标注的
-  //    会话（网页端）按主人视图渲染。background/values 只进主人视图。
+  //    主人/访客双视图（fail-closed）：im-channel driver 在 agent setup 里经 noteActor
+  //    标注角色（键 = agentCtx，与框架 composedPreset(agent.ctx) 的用法一致）。
+  //    已装 im-channel 时，未被标注的会话按访客视图渲染（resolveGuestView）；
+  //    未装 im-channel 的纯网页部署无访客入口，按主人视图。
   const actorByCtx = new WeakMap<object, { isMaster: boolean }>()
   const isTwin = (context: unknown): boolean => {
     const agent = (context as { agent?: { ctx?: unknown } } | undefined)?.agent
@@ -887,7 +960,11 @@ export function apply(ctx: Context): void {
           if (!isTwin(context)) return ''
           const agentCtx = (context as { agent?: { ctx?: unknown } } | undefined)?.agent?.ctx
           const actor = agentCtx ? actorByCtx.get(agentCtx as object) : undefined
-          return renderPersona(loadConfig(), { guestView: actor?.isMaster === false })
+          let imInstalled = false
+          try { imInstalled = Boolean(ctx.get('im-channel')) } catch { imInstalled = false }
+          return renderPersona(loadConfig(), {
+            guestView: resolveGuestView({ imChannelInstalled: imInstalled, actorIsMaster: actor?.isMaster }),
+          })
         },
       })
       // 安全边界段（静态，防提示注入 + 提醒身份/权限边界）

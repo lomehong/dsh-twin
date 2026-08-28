@@ -46,9 +46,15 @@
   在 section 的 text 回调里做不到。
 - 既定模式是「驱动器挂载时带身份」：im-channel driver 在 agent setup 里显式调
   `mountSharedMemory(agentCtx, userId, isMaster)`——按角色注入必须走同一条路。
-- 双视图的正确实现路径（未实施）：im-channel driver 在 setup 里调用 dsh-twin 服务
-  的钩子（如 `twin.mountPersonaSection(agentCtx, { isMaster })`）按角色挂载人格段，
-  同时 dsh-twin 全局 section 需退位避免双人格。跨仓库改动 + 需真机 IM 回归验证。
+- 【已实施，方案与当初设想不同】双视图最终用 **noteActor + WeakMap** 实现：
+  dsh-twin 服务暴露 `noteActor(agentCtx, { isMaster })`，im-channel driver 在
+  agent setup 里标注，section 的 text 回调从 WeakMap 取角色（键 = agentCtx，
+  与框架 `composedPreset(agent.ctx)` 的取法一致）。
+- 【v0.2.0 起 fail-closed】视图判定收进 `resolveGuestView`：装了 im-channel 而
+  会话未被标注 → 按访客视图（宁可少注入 background，不可泄露给无法证明身份的
+  对话者）；未装 im-channel 的纯网页部署按主人视图（否则 background 永久丢失）。
+  当初设想的 `mountPersonaSection` 按角色挂载方案未采用——全局 section +
+  WeakMap 已够用，且少一处跨仓库接口。
 
 ## 9. peerDependencies 版本范围对 rc 包必须是 rc 可满足的
 - 教训：`">=0.1.0"` 对 registry 上的 `0.1.0-rc.x` **不可满足**（semver 里 prerelease
@@ -61,3 +67,22 @@
   `DSH_HOME` 设到 `mkdtempSync` 临时目录隔离，就能对宿主端全量行为（持久化/原子写/
   版本化/纯函数）建立回归保护。
 - TS 迁移因此可以放慢节奏单独做，不被"没有测试就不敢重构"绑架。
+
+## 11. 插件自有 HTTP 路由不在上游认证围栏内（exact 优先于 prefix）
+- 教训：dsh v0.1.2 起 web 界面对 `/`（index）与 `/api` 前缀做一次性 token 认证，
+  但 webserver 的路由匹配是「先查 exact 表，未命中再查最长 prefix」——把插件
+  路由注册成 `/api/...` 的 **exact** 路由会抢在认证围栏前面被直接应答，既拿不到
+  认证保护也不是"继承围栏"。围栏内的正确注册途径是 connection 的 fetch 注册表
+  （`ctx.connection` / rpc intercept），接口版本敏感。
+- 现状（dsh-twin / dsh-model-failover 同）：插件写端点自行做 sameOrigin CSRF +
+  content-type/体积限制；**GET 端点在 LAN 暴露场景可被未认证读取**。敏感部署
+  不要把端口暴露到局域网之外，等上游提供面向插件的认证注册途径。
+
+## 12. agent 预设里的插件行是硬引用：行引用的包未安装 = 整份组合不可挂载
+- 教训：上游 agent-presets 的 discovery 把无法解析的行判为组合问题
+  （"row … names a plugin that cannot be resolved"）。预设本体里**不能写死可选
+  依赖的工具行**（dsh-twin 曾无条件写 tool-memory，未装 dsh-memory 的机器上
+  预设直接挂不了，"可拔插"卖点失效）。
+- 正确做法：可选依赖的工具行由宿主端在**物化时**探测安装状态再逐行追加
+  （`materializePreset` 的 optionalRows），装了才有行；同时给预设本体加
+  `PRESET_VERSION` 递增，让存量用户拿到修正后的组合。
