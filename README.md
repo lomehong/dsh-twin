@@ -89,13 +89,18 @@ dsh plugin --profile web add git+https://github.com/lomehong/dsh-twin.git   # �
 ```sh
 git clone https://github.com/lomehong/dsh-twin.git
 cd dsh-twin
-pnpm add -D esbuild react @types/react   # 构建客户端仅需 esbuild
-node scripts/build-client.mjs            # 产出 lib/client.js
+npm install
+npm run build       # tsc 编译 src/ → lib/（宿主端 + 类型声明）+ esbuild 重建 lib/client.js
+npm test            # vitest：21 个行为锁定测试（直接跑 src/*.ts 源码）
+npm run typecheck   # tsc -b --noEmit 严格类型检查（exactOptionalPropertyTypes）
 ```
 
+- 宿主端源码是 TypeScript（`src/index.ts`、`src/tools.ts`，结构化 XxxLike 接口
+  声明外部服务，对齐 dsh-model-failover）；`lib/index.js`、`lib/tools.js` 是
+  tsc 构建产物，类型声明在 `lib/types/`。
 - 客户端 bundle 用 esbuild，输出 `__ModuleLoader__.load()` 格式（与 dsh-memory 一致）。
-- `lib/`（构建产物）随仓库提交，git 安装无需本地构建。
-- 改 host 端直接用 `lib/index.js`；改客户端后重建 `lib/client.js`。
+- `lib/`（构建产物）随仓库提交，git 安装无需本地构建（LESSONS #6）。
+- 改宿主端编辑 `src/*.ts` 后跑 `npm run build`；改客户端后重建 `lib/client.js`。
 
 ## 目录结构
 

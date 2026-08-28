@@ -66,8 +66,10 @@ export declare function ensureDefaultPreset(ctx: Context): void;
 /** 把知识种子写入 dsh-memory（若已安装）；按内容去重。 */
 export declare function seedMemory(ctx: Context, cfg: TwinConfig): Promise<SeedResult>;
 /**
- * 规整 dsh-memory：合并「内容规整后相同」的近重复条目，保留时间最新者，
- * 并集 participants，scope 按最公开者取值。幂等、安全——只在确实重复时删除。
+ * 规整 dsh-memory：合并「内容规整后相同且同作者」的近重复条目，保留时间最新者，
+ * 并集 participants（仅限同作者组）。幂等、安全。
+ * 信任域隔离（安全评审 M1）：绝不跨作者合并、绝不把 scope 往公开提升——
+ * 访客投毒的同文条目不得借此提升可见性或挤掉主人记忆。
  */
 export declare function consolidateMemory(ctx: Context): Promise<ConsolidateResult>;
 export declare function normalizeConfigInput(body: unknown): TwinConfig;
