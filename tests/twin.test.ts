@@ -251,11 +251,11 @@ describe('renderPersona 双视图', () => {
     expect(full).toContain('诚实第一')
   })
 
-  it('访客视图剔除 background/values，保留公共字段', async () => {
+  it('访客视图裁剪 background（信息类），保留 values（行为类，分身对访客也坚守主人价值观）', async () => {
     const { renderPersona } = await import('../src/index.ts')
     const guest = renderPersona(cfgWithPrivate, { guestView: true })
     expect(guest).not.toContain('研发负责人')
-    expect(guest).not.toContain('诚实第一')
+    expect(guest).toContain('诚实第一')
     expect(guest).toContain('「小七」')
     expect(guest).toContain('助理')
     expect(guest).toContain('投诉转主人')

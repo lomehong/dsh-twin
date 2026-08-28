@@ -326,8 +326,10 @@ export function renderPersona(cfg: Partial<TwinConfig>, { guestView = false }: {
   const parts: string[] = []
   if (i.name) parts.push(`你的名字是「${i.name}」。`)
   if (i.role) parts.push(`你的身份定位：${i.role}。`)
-  // 主人/访客双视图：background（主人的个人背景）与 values（主人的价值观原则）
-  // 属主人私密信息，只进主人会话；访客视图只拿公共版人格。
+  // 主人/访客双视图：只裁剪「信息类」字段——background（主人的个人背景）属
+  // 主人私密事实，访客视图不存在（结构性防泄露）。「行为类」字段（values/
+  // style/rules/escalation/avoid）全量保留：价值观是分身对任何对话对象的行为
+  // 准则（主人诚信，分身对外也诚信），不是隐私。
   if (!guestView && i.background) parts.push(`背景：${i.background}`)
   const toneMap: Record<string, string> = {
     professional: '以专业、可靠、条理清晰的语气回答。',
@@ -337,7 +339,7 @@ export function renderPersona(cfg: Partial<TwinConfig>, { guestView = false }: {
   }
   if (p.tone && toneMap[p.tone]) parts.push(toneMap[p.tone])
   if (p.style) parts.push(`风格要求：${p.style}`)
-  if (!guestView && p.values) parts.push(`价值观与原则：${p.values}`)
+  if (p.values) parts.push(`价值观与原则：${p.values}`)
   if (p.rules) parts.push(`决策与做事方式：${p.rules}`)
   if (p.escalation) parts.push(`边界与转人工：${p.escalation}`)
   if (p.avoid) parts.push(`禁忌：${p.avoid}`)
