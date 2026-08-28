@@ -1,5 +1,5 @@
 /**
- * dsh-twin 宿主端测试：直接 import 构建产物 lib/index.js（ESM）。
+ * dsh-twin 宿主端测试：直接 import TypeScript 源码 src/index.ts（vitest 原生跑 TS）。
  * 每个用例把 DSH_HOME 隔离到独立临时目录，测试间互不污染、不碰真实 ~/.dsh。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync, mkdirSync, 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-let home
+let home: string
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'dsh-twin-test-'))
@@ -21,14 +21,14 @@ afterEach(() => {
 
 describe('normalizeConfigInput', () => {
   it('字段白名单：未声明键被丢弃', async () => {
-    const { normalizeConfigInput } = await import('../lib/index.js')
+    const { normalizeConfigInput } = await import('../src/index.ts')
     const n = normalizeConfigInput({ identity: { name: 'x' }, evil: 'payload', extra: 1 })
     expect(Object.keys(n).sort()).toEqual(['becomeDefaultPreset', 'identity', 'knowledge', 'persona', 'template'])
     expect(n.evil).toBeUndefined()
   })
 
   it('非法 tone 回落默认，seeds 过滤非字符串/空串并截断', async () => {
-    const { normalizeConfigInput } = await import('../lib/index.js')
+    const { normalizeConfigInput } = await import('../src/index.ts')
     const n = normalizeConfigInput({
       persona: { tone: 'hacker' },
       knowledge: { seeds: [' ok ', 42, null, ''] },
@@ -38,7 +38,7 @@ describe('normalizeConfigInput', () => {
   })
 
   it('清洗控制字符 + 长度上限（超限截断，未超限保留）', async () => {
-    const { normalizeConfigInput } = await import('../lib/index.js')
+    const { normalizeConfigInput } = await import('../src/index.ts')
     const long = 'x'.repeat(3000)
     const n = normalizeConfigInput({
       identity: { name: 'a\u0000b\u001fc', background: long },
@@ -50,14 +50,14 @@ describe('normalizeConfigInput', () => {
   })
 
   it('becomeDefaultPreset 仅接受布尔（默认 false）', async () => {
-    const { normalizeConfigInput } = await import('../lib/index.js')
+    const { normalizeConfigInput } = await import('../src/index.ts')
     expect(normalizeConfigInput({ becomeDefaultPreset: true }).becomeDefaultPreset).toBe(true)
     expect(normalizeConfigInput({ becomeDefaultPreset: 'yes' }).becomeDefaultPreset).toBe(false)
     expect(normalizeConfigInput({}).becomeDefaultPreset).toBe(false)
   })
 
   it('非对象 body 安全回落默认', async () => {
-    const { normalizeConfigInput } = await import('../lib/index.js')
+    const { normalizeConfigInput } = await import('../src/index.ts')
     const d = normalizeConfigInput('not an object')
     expect(d.template).toBe('custom')
     const a = normalizeConfigInput(['array'])
@@ -67,7 +67,7 @@ describe('normalizeConfigInput', () => {
 
 describe('配置持久化与版本化', () => {
   it('saveConfig 原子写 + loadConfig 往返', async () => {
-    const { saveConfig, loadConfig, normalizeConfigInput } = await import('../lib/index.js')
+    const { saveConfig, loadConfig, normalizeConfigInput } = await import('../src/index.ts')
     saveConfig(normalizeConfigInput({ identity: { name: '小七' } }))
     expect(loadConfig().identity.name).toBe('小七')
     expect(existsSync(join(home, 'twin-config.json'))).toBe(true)
@@ -76,7 +76,7 @@ describe('配置持久化与版本化', () => {
   })
 
   it('坏 JSON 回落默认并保留旧文件内容直到下次保存', async () => {
-    const { loadConfig } = await import('../lib/index.js')
+    const { loadConfig } = await import('../src/index.ts')
     mkdirSync(home, { recursive: true })
     writeFileSync(join(home, 'twin-config.json'), '{broken json', 'utf8')
     const cfg = loadConfig()
@@ -85,7 +85,7 @@ describe('配置持久化与版本化', () => {
   })
 
   it('restoreHistory 恢复前先归档当前版本（连续恢复不丢中间态）', async () => {
-    const mod = await import('../lib/index.js')
+    const mod = await import('../src/index.ts')
     const { saveConfig, loadConfig, archiveHistory, restoreHistory, listHistory, normalizeConfigInput } = mod
     saveConfig(normalizeConfigInput({ identity: { name: 'B' } }))
     archiveHistory(loadConfig()) // history[0] = B
@@ -102,7 +102,7 @@ describe('配置持久化与版本化', () => {
   })
 
   it('restoreHistory 不存在的索引返回 404 语义且不动配置', async () => {
-    const mod = await import('../lib/index.js')
+    const mod = await import('../src/index.ts')
     const { restoreHistory, loadConfig, normalizeConfigInput, saveConfig } = mod
     saveConfig(normalizeConfigInput({ identity: { name: 'only' } }))
     const r = restoreHistory(99)
@@ -111,7 +111,7 @@ describe('配置持久化与版本化', () => {
   })
 
   it('history 封顶最近 10 个', async () => {
-    const mod = await import('../lib/index.js')
+    const mod = await import('../src/index.ts')
     const { saveConfig, archiveHistory, loadConfig, listHistory, normalizeConfigInput } = mod
     for (let i = 0; i < 14; i++) {
       archiveHistory(loadConfig())
@@ -123,7 +123,7 @@ describe('配置持久化与版本化', () => {
 
 describe('materializePreset 版本戳', () => {
   it('首启物化；二次调用幂等；预设文件包含 tool-memory 与（yuyi 缺席时无）tool-yuyi', async () => {
-    const { materializePreset } = await import('../lib/index.js')
+    const { materializePreset } = await import('../src/index.ts')
     const first = materializePreset()
     expect(first.materialized).toBe(true)
     const yml = readFileSync(join(first.dir, 'agent.cordis.yml'), 'utf8')
@@ -136,7 +136,7 @@ describe('materializePreset 版本戳', () => {
   })
 
   it('版本号变化时覆盖更新并保留 .bak', async () => {
-    const { materializePreset } = await import('../lib/index.js')
+    const { materializePreset } = await import('../src/index.ts')
     const first = materializePreset()
     // 手工改版本戳模拟"插件升级"
     writeFileSync(join(first.dir, '.materialized-version'), '0\n', 'utf8')
@@ -149,7 +149,7 @@ describe('materializePreset 版本戳', () => {
 
 describe('renderPersona', () => {
   it('默认 tone 始终渲染语气行（全新配置也有一条专业语气指令）', async () => {
-    const { renderPersona, defaultConfig } = await import('../lib/index.js')
+    const { renderPersona, defaultConfig } = await import('../src/index.ts')
     const text = renderPersona(defaultConfig())
     // normalizeConfigInput 把非法/缺省 tone 归一为 professional，因此"空配置"
     // 至少渲染语气行；只有 renderPersona 直接收到 tone 为空的配置才返回空串
@@ -158,13 +158,13 @@ describe('renderPersona', () => {
   })
 
   it('tone 为空时返回空串（空段被丢弃）', async () => {
-    const { renderPersona } = await import('../lib/index.js')
+    const { renderPersona } = await import('../src/index.ts')
     const empty = { template: 'custom', identity: {}, persona: { tone: '' }, knowledge: { seeds: [] } }
     expect(renderPersona(empty)).toBe('')
   })
 
   it('字段拼接：身份/语气/风格/边界按序渲染', async () => {
-    const { renderPersona, normalizeConfigInput } = await import('../lib/index.js')
+    const { renderPersona, normalizeConfigInput } = await import('../src/index.ts')
     const cfg = normalizeConfigInput({
       identity: { name: '小七', role: '助理' },
       persona: { tone: 'concise', escalation: '投诉转主人' },
@@ -179,31 +179,31 @@ describe('renderPersona', () => {
 
 describe('escalateToOwner（转人工通知）', () => {
   it('im-channel 缺席时明确报错而非崩溃', async () => {
-    const { escalateToOwner } = await import('../lib/tools.js')
-    const r = await escalateToOwner({}, { reason: '需要主人决策' })
+    const { escalateToOwner } = await import('../src/tools.ts')
+    const r = await escalateToOwner({} as never, { reason: '需要主人决策' })
     expect(r.ok).toBe(false)
     expect(r.error).toContain('im-channel')
   })
 
   it('推送给全部 isMaster 绑定（跨渠道去重）', async () => {
-    const { escalateToOwner } = await import('../lib/tools.js')
-    const pushes = []
+    const { escalateToOwner } = await import('../src/tools.ts')
+    const pushes: Array<{ kind: string; userId: string; text: string }> = []
     const ctx = {
-      get(name) {
+      get(name: string) {
         if (name !== 'im-channel') return undefined
         return {
           botsStatus: () => [
             { kind: 'wecom', bindings: [{ userId: 'boss', isMaster: true }, { userId: 'guest1', isMaster: false }] },
             { kind: 'feishu', bindings: [{ userId: 'boss', isMaster: true }] },
           ],
-          pushToUser: async (kind, userId, text) => {
+          pushToUser: async (kind: string, userId: string, text: string) => {
             pushes.push({ kind, userId, text })
             return true
           },
         }
       },
     }
-    const r = await escalateToOwner(ctx, { reason: '访客投诉', detail: '需要退款' })
+    const r = await escalateToOwner(ctx as never, { reason: '访客投诉', detail: '需要退款' })
     expect(r.ok).toBe(true)
     expect(r.delivered).toBe(1) // boss 去重后只有一个目标
     expect(pushes[0].userId).toBe('boss')
@@ -213,24 +213,24 @@ describe('escalateToOwner（转人工通知）', () => {
   })
 
   it('无主人绑定时明确报错（/bind 提示）', async () => {
-    const { escalateToOwner } = await import('../lib/tools.js')
+    const { escalateToOwner } = await import('../src/tools.ts')
     const ctx = {
       get: () => ({ botsStatus: () => [{ kind: 'wecom', bindings: [{ userId: 'g', isMaster: false }] }], pushToUser: async () => true }),
     }
-    const r = await escalateToOwner(ctx, { reason: 'x' })
+    const r = await escalateToOwner(ctx as never, { reason: 'x' })
     expect(r.ok).toBe(false)
     expect(r.error).toContain('/bind')
   })
 
   it('全部渠道发送失败时报错', async () => {
-    const { escalateToOwner } = await import('../lib/tools.js')
+    const { escalateToOwner } = await import('../src/tools.ts')
     const ctx = {
       get: () => ({
         botsStatus: () => [{ kind: 'wecom', bindings: [{ userId: 'boss', isMaster: true }] }],
         pushToUser: async () => false,
       }),
     }
-    const r = await escalateToOwner(ctx, { reason: 'x' })
+    const r = await escalateToOwner(ctx as never, { reason: 'x' })
     expect(r.ok).toBe(false)
     expect(r.error).toContain('发送失败')
   })
@@ -245,14 +245,14 @@ describe('renderPersona 双视图', () => {
   }
 
   it('主人视图（默认）含 background/values', async () => {
-    const { renderPersona } = await import('../lib/index.js')
+    const { renderPersona } = await import('../src/index.ts')
     const full = renderPersona(cfgWithPrivate)
     expect(full).toContain('研发负责人')
     expect(full).toContain('诚实第一')
   })
 
   it('访客视图剔除 background/values，保留公共字段', async () => {
-    const { renderPersona } = await import('../lib/index.js')
+    const { renderPersona } = await import('../src/index.ts')
     const guest = renderPersona(cfgWithPrivate, { guestView: true })
     expect(guest).not.toContain('研发负责人')
     expect(guest).not.toContain('诚实第一')

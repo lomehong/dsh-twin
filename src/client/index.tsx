@@ -209,8 +209,15 @@ function TwinSettingsPage() {
     void refreshPreview()
   }
 
-  function handleExport() {
-    const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' })
+  async function handleExport() {
+    // 导出服务端已保存的版本（而非客户端未保存的编辑态）——
+    // 拿到别的机器导入的必须是实际生效的配置
+    let exported = cfg
+    try {
+      const d = await api('/dsh-twin/config', 'GET')
+      if (d.ok && d.config) exported = d.config
+    } catch { /* 拉取失败退回当前编辑态 */ }
+    const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -248,8 +255,10 @@ function TwinSettingsPage() {
       try {
         const text = String(reader.result || '')
         // 文档按「空行分段」切块（比一行一条更符合语义）；无空行时回落为按行。
-        const paras = text.split(/\r?\n\s*\r?\n/).map((x) => x.trim()).filter(Boolean)
-        const chunks = paras.length > 1 ? paras : text.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+        // 段内换行必须压平：textarea 以行为界编辑种子，含换行的条目会在下次编辑时被拆散变异。
+        const flatten = (x: string) => x.trim().replace(/\s*\r?\n\s*/g, ' ').replace(/\s+/g, ' ').trim()
+        const paras = text.split(/\r?\n\s*\r?\n/).map(flatten).filter(Boolean)
+        const chunks = paras.length > 1 ? paras : text.split(/\r?\n/).map(flatten).filter(Boolean)
         setCfg((prev) => {
           const set = new Set(prev.knowledge?.seeds ?? [])
           for (const c of chunks) if (!set.has(c)) set.add(c)
