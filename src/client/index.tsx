@@ -335,6 +335,7 @@ function TwinSettingsPage() {
           <input style={s.input} value={cfg.identity.role} onChange={(e) => setI('role', e.target.value)} placeholder="例如：私人助理 / 研发助手 / 专家顾问" />
           <label style={s.label}>背景</label>
           <textarea style={s.textarea} value={cfg.identity.background} onChange={(e) => setI('background', e.target.value)} placeholder="你是谁、懂什么、服务谁…" />
+          <div style={s.hint}>🔒 仅注入你自己的会话；访客会话不含此内容。可写私密事实（日程、项目、家庭安排等）。</div>
           <label style={s.label}>语气</label>
           <div style={s.chipRow}>
             {TONES.map((t) => (
@@ -345,6 +346,7 @@ function TwinSettingsPage() {
           <textarea style={s.textarea} value={cfg.persona.style} onChange={(e) => setP('style', e.target.value)} placeholder="例如：先给结论再给依据 / 别用太专业的黑话…" />
           <label style={s.label}>价值观与原则</label>
           <textarea style={s.textarea} value={cfg.persona.values} onChange={(e) => setP('values', e.target.value)} placeholder="例如：以主人利益为先；诚实有据、不编造。" />
+          <div style={s.hint}>⚠ 会注入所有会话（含访客）——分身对任何人都坚守这里的原则。只写行为准则，勿写机密（机密请写在上方「背景」，仅你自己的会话可见）。</div>
           <label style={s.label}>决策与做事方式</label>
           <textarea style={s.textarea} value={cfg.persona.rules} onChange={(e) => setP('rules', e.target.value)} placeholder="例如：先听清需求再行动；能代办的代办，不确定的先确认。" />
           <label style={s.label}>边界与转人工</label>
