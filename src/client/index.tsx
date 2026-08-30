@@ -67,7 +67,21 @@ function FailoverCard() {
   }, [])
   if (state === 'missing') return null
   return (
-    <div style={{ ...s.hint, marginTop: 8 }}>
+    <div
+      style={
+        // 本组件在模块作用域，够不到 TwinSettingsPage 内部的样式对象 s——内联等价样式
+        // （historical s.hint + marginTop）。此前引用 s.hint 是 ReferenceError，监控 Tab 必崩。
+        {
+          fontSize: 12,
+          color: '#8a8f9c',
+          background: '#f6f7f9',
+          border: '1px solid #eee',
+          borderRadius: 6,
+          padding: '8px 10px',
+          marginTop: 8,
+        }
+      }
+    >
       模型降级链：
       {state === 'ok' && '已配置（套餐超限/余额不足时按链自动切换，窗口重置自动切回）'}
       {state === 'unconfigured' && (
