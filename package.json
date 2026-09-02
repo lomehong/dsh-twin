@@ -54,11 +54,13 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": "0.1.2-alpha.4",
     "@types/node": "^20.0.0",
     "@types/react": "~18.3.1",
     "esbuild": "^0.25.12",
     "react": "^18.2.0",
     "typescript": "^5.9.3",
     "vitest": "^3.0.0"
-  }
+  },
+  "packageManager": "pnpm@9.14.2+sha1.5202b50ab92394b3c922d2e293f196e2df6d441b"
 }

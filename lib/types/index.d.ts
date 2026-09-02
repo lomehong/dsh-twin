@@ -44,6 +44,13 @@ export interface HistoryEntry {
 export declare function defaultConfig(): TwinConfig;
 export declare function loadConfig(): TwinConfig;
 export declare function saveConfig(cfg: TwinConfig): TwinConfig;
+/**
+ * 归一化多行人格字段：Unicode NFC → CR/LF 归一为 LF → 清除控制字符（保留换行）→
+ * 折叠 3+ 连续换行 → 中和行首「#」（防在系统提示词里伪造章节结构）→ 去首尾空白。幂等。
+ */
+export declare function sanitizePersonaText(input: unknown): string;
+/** 归一化单行字段（名称/身份/知识种子）：在多行归一基础上折叠全部空白为单空格。幂等。 */
+export declare function sanitizePersonaLine(input: unknown): string;
 /** 保存前把旧配置归档为版本快照（保留最近 10 个）。 */
 export declare function archiveHistory(cfg: TwinConfig): void;
 export declare function listHistory(): Array<{
@@ -75,12 +82,15 @@ export interface OptionalDeps {
  */
 export declare function materializePreset(deps?: OptionalDeps): MaterializeResult;
 export declare function ensureDefaultPreset(ctx: Context): void;
-/** 把知识种子写入 dsh-memory（若已安装）；按内容去重。 */
+/** 把知识种子写入 dsh-memory（若已安装）；按内容去重。
+ *  种子带来源归因（origin=seed，来自分身设置向导），满足「来源登记 ≠ 事实晋升」的可追溯要求。 */
 export declare function seedMemory(ctx: Context, cfg: TwinConfig): Promise<SeedResult>;
 /**
- * 规整 dsh-memory：合并「内容规整后相同且同作者」的近重复条目，保留时间最新者，
- * 并集 participants（仅限同作者组）。幂等、安全。
- * 信任域隔离（安全评审 M1）：绝不跨作者合并、绝不把 scope 往公开提升——
+ * 规整 dsh-memory（处置对照，移植自 Decision Assistant 共识维护）：
+ * 归一化后陈述与范围完全相同的同作者条目 → 替代链去重：串行标记「已替代」指向时间更新者，
+ * 保留最新条目为当前——不物理删除，历史可经 memory_read(includeSuperseded) 查回。
+ * 参与者并集仍合并到保留条目（权限类原地变更）。
+ * 信任域隔离（安全评审 M1）：绝不跨作者归并、绝不把 scope 往公开提升——
  * 访客投毒的同文条目不得借此提升可见性或挤掉主人记忆。
  */
 export declare function consolidateMemory(ctx: Context): Promise<ConsolidateResult>;

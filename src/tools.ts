@@ -30,12 +30,24 @@ interface ImChannelLike {
   pushToUser(kind: string, userId: string, text: string, options?: { markdown?: boolean }): Promise<boolean> | boolean
 }
 
-/** 宿主 tools 服务（ctx.tools 或 ctx.get('tools')）的最小结构视图。 */
+/** 宿主 tools 服务（ctx.tools 或 ctx.get('tools')）的最小结构视图。
+ * alpha.4 起 ToolDefinition.output 强制声明（含 schema + render + 可选
+ * presentationMeta）——这里给出最少必要的 output 形状以满足 typecheck。
+ * 完整定义见 @deepseek-ai/dsh-tools/lib/types/index.d.ts 的 ToolOutputDefinition。*/
+interface ToolOutputLike {
+  /** 与 output.schema 对齐的 JSON Schema 子集（type + required + properties + additionalProperties）。 */
+  schema: { type: 'object'; additionalProperties?: boolean; required?: string[]; properties: Record<string, unknown> }
+  /** 值 → 模型可见 ContentBlock 的纯投影。 */
+  render: (args: unknown, value: unknown) => Array<{ type: string; text?: string; data?: unknown }>
+  /** 可选：纯可重放的呈现投影。 */
+  presentationMeta?: (args: unknown, value: unknown) => unknown
+}
 interface ToolsLike {
   register(tool: {
     name: string
     description: string
     parameters: object
+    output: ToolOutputLike
     execute: (args: unknown) => Promise<unknown>
   }): void
 }
@@ -118,7 +130,10 @@ export function apply(ctx: Context): void {
       name: 'escalate_to_owner',
       description:
         '转人工：把当前对话升级给主人处理。遇到权限不足、敏感或高风险操作、需要主人决策、访客投诉或你无法解决的问题时调用。' +
-        '会把原因推送给主人（IM 通知），调用成功后应告知对方「已转达主人，会尽快跟进」。',
+        '会把原因推送给主人（IM 通知），调用成功后应告知对方「已转达主人，会尽快跟进」。' +
+        '主人随后在会话中明确批准或拒绝时：若共享记忆可用（memory_write 工具存在），用 memory_write 记录授权——' +
+        'type=decision、statementType=授权，并填 authStatus（已授权/已拒绝）、authBy（主人 userid）、authVia（批准消息引用）、authRange（允许的对象与动作）；' +
+        '此后同类不可逆动作应先经 memory_read(statementType=授权) 查得已有授权再执行，无授权则继续转人工。',
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -128,7 +143,58 @@ export function apply(ctx: Context): void {
           detail: { type: 'string', description: '可选：需要主人知道的上下文或对方诉求摘要' },
         },
       },
-      execute: async (args) => escalateToOwner(ctx, (args ?? {}) as EscalateArgs),
+      // alpha.3 起 ToolDefinition.output 强制声明：canonical schema + render
+      // （值→ContentBlock[]）+ 可选 presentationMeta。escalateToOwner 失败
+      // 时把转人工失败原因也作为工具结果返回，便于上层与记忆系统记录。
+      output: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['delivered'],
+          properties: {
+            delivered: { type: 'boolean', description: 'IM 推送是否成功送达主人' },
+            channel: { type: 'string', description: '送达渠道（im / terminal / none）' },
+            target: { type: 'string', description: '目标用户标识（master userId / fallback 标识）' },
+            reason: { type: 'string', description: '原样回显的 reason 入参（便于审计）' },
+            error: { type: 'string', description: '未送达时的错误消息（成功时缺失）' },
+          },
+        },
+        render: (_args, value) => {
+          const v = value as {
+            delivered: boolean
+            channel?: string
+            target?: string
+            reason?: string
+            error?: string
+          }
+          if (v.delivered) {
+            return [{
+              type: 'text' as const,
+              text: `已转达${v.target ? ` ${v.target}` : ''}（${v.channel ?? 'im'}）：${v.reason ?? ''}`,
+            }]
+          }
+          return [{
+            type: 'text' as const,
+            text: `转人工未送达：${v.error ?? '未知原因'}。请改用 terminal 渠道或直接对话提醒主人。`,
+          }]
+        },
+      },
+      execute: async (args) => {
+        const r = await escalateToOwner(ctx, (args ?? {}) as EscalateArgs)
+        // alpha.4 ToolOutputDefinition 要求 schema/render 对齐——把 EscalateResult
+        // 适配成 canonical { delivered, channel, target, reason, error? }：
+        //   ok=true   → delivered=true, target=首位 owner 的 userId（次数取 delivered）
+        //   ok=false  → delivered=false, error=错误消息
+        if (!r.ok) {
+          return { delivered: false, channel: 'none', reason: (args as { reason?: string } | undefined)?.reason ?? '', error: r.error }
+        }
+        return {
+          delivered: true,
+          channel: 'im',
+          target: '', // escalateToOwner 没回具体 userId，留空字符串由 render 兜底
+          reason: (args as { reason?: string } | undefined)?.reason ?? '',
+        }
+      },
     })
   } catch (e) {
     try { console.warn('[dsh-twin] escalate_to_owner 工具注册失败（跳过）:', e instanceof Error ? e.message : String(e)) } catch { /* 忽略 */ }
