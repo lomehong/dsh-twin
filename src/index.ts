@@ -886,63 +886,62 @@ function registerApi(web: WebServerLike, service: TwinService): () => void {
   }))
 
   // ── v0.3 四张卡路由 ──
-  // GET /dsh-twin/cards：当前卡 + 状态 + 修订史 + 双视图投影摘要
-  disposers.push(web.register({
-    kind: 'exact',
-    path: '/dsh-twin/cards',
-    handler: (_req, res) => {
-      try {
-        const st = loadCardsState()
-        respondJson(res, 200, {
-          ok: true,
-          file: st.file,
-          hasEffective: st.hasEffective,
-          history: listRevisions(),
-          summary: {
-            master: projectionSummary(st.file.current, { role: 'master' }),
-            guest: projectionSummary(st.file.current, { role: 'guest' }),
-          },
-        })
-      } catch (e) {
-        respondJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) })
-      }
-    },
-  }))
-  // POST /dsh-twin/cards：保存（归一化→修订快照→生效判定）；migrate=true 时先从 legacy twin-config 迁移
+  // 同一路径只注册一次（宿主 exact 路由同路径双注册会冲突、导致后续路由失效——
+  // 见 dsh-memory 1b30d16 同款教训），GET/POST 在 handler 内分发。
   disposers.push(web.register({
     kind: 'exact',
     path: '/dsh-twin/cards',
     handler: async (req, res) => {
-      if (req.method !== 'POST' || !sameOrigin(req)) {
-        respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' })
-        return
-      }
       try {
-        const body = (await readJsonBody(req)) as {
-          cards?: unknown
-          confirm?: boolean
-          regressionPassed?: boolean
-          regressionReportId?: unknown
-          migrate?: boolean
+        if (req.method === 'GET') {
+          // 当前卡 + 状态 + 修订史 + 双视图投影摘要
+          const st = loadCardsState()
+          respondJson(res, 200, {
+            ok: true,
+            file: st.file,
+            hasEffective: st.hasEffective,
+            history: listRevisions(),
+            summary: {
+              master: projectionSummary(st.file.current, { role: 'master' }),
+              guest: projectionSummary(st.file.current, { role: 'guest' }),
+            },
+          })
+          return
         }
-        let cards: unknown = body.cards
-        const mapping: string[] = []
-        if (body.migrate === true) {
-          const m = migrateTwinConfigToCards(loadConfig())
-          if (!m.ok) {
-            respondJson(res, 400, { ok: false, error: m.error })
+        if (req.method === 'POST') {
+          // 保存（归一化→修订快照→生效判定）；migrate=true 时先从 legacy twin-config 迁移
+          if (!sameOrigin(req)) {
+            respondJson(res, 403, { ok: false, error: 'cross-origin denied' })
             return
           }
-          cards = m.cards
-          mapping.push(...m.mapping)
+          const body = (await readJsonBody(req)) as {
+            cards?: unknown
+            confirm?: boolean
+            regressionPassed?: boolean
+            regressionReportId?: unknown
+            migrate?: boolean
+          }
+          let cards: unknown = body.cards
+          const mapping: string[] = []
+          if (body.migrate === true) {
+            const m = migrateTwinConfigToCards(loadConfig())
+            if (!m.ok) {
+              respondJson(res, 400, { ok: false, error: m.error })
+              return
+            }
+            cards = m.cards
+            mapping.push(...m.mapping)
+          }
+          const r = saveCards({
+            cards,
+            confirm: body.confirm === true,
+            regressionPassed: body.regressionPassed === true,
+            regressionReportId: body.regressionReportId,
+          })
+          respondJson(res, 200, { ok: true, ...r, mapping })
+          return
         }
-        const r = saveCards({
-          cards,
-          confirm: body.confirm === true,
-          regressionPassed: body.regressionPassed === true,
-          regressionReportId: body.regressionReportId,
-        })
-        respondJson(res, 200, { ok: true, ...r, mapping })
+        respondJson(res, 405, { ok: false, error: 'method not allowed' })
       } catch (e) {
         respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) })
       }
