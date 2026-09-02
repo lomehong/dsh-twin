@@ -22,9 +22,9 @@ interface Stats {
 }
 
 export function applyShadow(ctx: ClientContext): void {
-  ctx.slots.inject('settings.section', () =>
+  ctx.slots.inject('conversation.view', () =>
     ctx.slots.register(
-      { name: 'settings.section', id: 'twin-shadow', order: 29, label: () => '影子测试（v2）' },
+      { name: 'conversation.view', id: 'twin-shadow', order: 24, label: () => '影子测试' },
       ShadowPage,
     ),
   )
@@ -42,8 +42,8 @@ const s: Record<string, React.CSSProperties> = {
   pair: { border: '1px solid #eee', borderRadius: 10, padding: 14, marginBottom: 12, background: 'var(--dsw-alias-bg-layer-2)' },
   q: { fontSize: 13, color: 'var(--dsw-alias-label-primary)', marginBottom: 8 },
   reply: { borderRadius: 8, padding: 10, fontSize: 13, marginBottom: 8, lineHeight: 1.6 },
-  masterC: { background: '#eef7f1', border: '1px solid #cfe5d8' },
-  twinC: { background: '#eef0fb', border: '1px solid #c9cff2' },
+  masterC: { background: 'color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--dsw-alias-state-success-primary) 35%, transparent)' },
+  twinC: { background: 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent)' },
   tag: { fontSize: 11, fontWeight: 700, display: 'inline-block', marginBottom: 4 },
   btnRow: { display: 'flex', gap: 8 },
   jbtn: { flex: 1, padding: '7px 0', border: '1px solid #ddd', borderRadius: 6, background: 'var(--dsw-alias-bg-layer-2)', fontSize: 12.5, cursor: 'pointer' },
@@ -133,7 +133,7 @@ export function ShadowPage() {
                 {p.masterReply}
               </div>
               <div style={{ ...s.reply, ...s.twinC }}>
-                <span style={{ ...s.tag, color: '#3f51c1' }}>回复 B</span>
+                <span style={{ ...s.tag, color: 'var(--dsw-alias-state-business-primary)' }}>回复 B</span>
                 <br />
                 {p.twinReply}
               </div>

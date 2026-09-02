@@ -18,9 +18,9 @@ const ROLE_LABEL: Record<string, string> = { master: '主人', colleague: '同�
 const ROLE_COLOR: Record<string, string> = { master: 'var(--dsw-alias-state-success-primary)', colleague: '#3f51c1', customer: 'var(--dsw-alias-state-warn-label)', stranger: 'var(--dsw-alias-label-tertiary)', blocked: 'var(--dsw-alias-state-error-primary)' }
 
 export function applyProfiles(ctx: ClientContext): void {
-  ctx.slots.inject('settings.section', () =>
+  ctx.slots.inject('conversation.view', () =>
     ctx.slots.register(
-      { name: 'settings.section', id: 'twin-profiles', order: 28, label: () => '关系档案（v2）' },
+      { name: 'conversation.view', id: 'twin-profiles', order: 23, label: () => '关系档案' },
       ProfilesPage,
     ),
   )

@@ -10,6 +10,7 @@ import { applyCards } from './cards.tsx'
 import { applyLearning } from './learning.tsx'
 import { applyProfiles } from './profiles.tsx'
 import { applyShadow } from './shadow.tsx'
+import { applyDashboard } from './dashboard.tsx'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
@@ -34,6 +35,7 @@ export function apply(ctx: ClientContext): void {
   applyLearning(ctx)
   applyProfiles(ctx)
   applyShadow(ctx)
+  applyDashboard(ctx)
 }
 
 type Config = {

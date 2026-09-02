@@ -57,9 +57,9 @@ async function api(path: string, method: 'GET' | 'POST', body?: unknown): Promis
 }
 
 export function applyLearning(ctx: ClientContext): void {
-  ctx.slots.inject('settings.section', () =>
+  ctx.slots.inject('conversation.view', () =>
     ctx.slots.register(
-      { name: 'settings.section', id: 'twin-learning', order: 27, label: () => '学习队列（v2）' },
+      { name: 'conversation.view', id: 'twin-learning', order: 22, label: () => '学习队列' },
       LearningPage,
     ),
   )
