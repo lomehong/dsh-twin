@@ -21,6 +21,25 @@ import type { Context } from '@deepseek-ai/cordis'
 import { dshHome, legacyConfigPath, normalizePersonaText, normalizePersonaLine, twinWarn } from './sanitize.ts'
 import { effectiveCards, loadCardsState, saveCards, listRevisions, migrateTwinConfigToCards, normalizeCards } from './cards.ts'
 import { renderCards, projectionSummary } from './projection.ts'
+import { mineAndPool, listDrafts, confirmDraft, rejectDraft } from './drafts.ts'
+import {
+  enqueue as learningEnqueue,
+  confirmCandidate as learningConfirm,
+  rejectCandidate as learningReject,
+  applyCandidate as learningApply,
+  listEvents as learningListEvents,
+  listCandidates as learningListCandidates,
+  fingerprint as learningFingerprint,
+  loadEvents as learningLoadEvents,
+  loadCandidates as learningLoadCandidates,
+  saveEvents,
+  saveCandidates,
+  type EnqueueInput,
+  type SignalKind,
+  type TargetKind,
+  type LearningEvent,
+  type LearningCandidate,
+} from './learning.ts'
 
 export const name = 'dsh-twin'
 export const provide = ['dsh-twin']
@@ -201,6 +220,10 @@ interface TwinService {
    *  人格段组装时据此渲染主人/访客视图。未标注 = 主人视图（网页端）。 */
   noteActor: (agentCtx: object, role: { isMaster: boolean }) => void
   presetId: string
+  /** v2 学习闭环：软依赖入队（供 dsh-ledger / im-channel 调用） */
+  enqueueLearning?: (input: EnqueueInput) => { event: LearningEvent; promoted: boolean; candidateId: string | undefined }
+  /** v2 学习队列查询 */
+  learningQueue?: () => { events: LearningEvent[]; candidates: LearningCandidate[] }
 }
 
 const SECTION_NAME = 'twin'
@@ -968,6 +991,167 @@ function registerApi(web: WebServerLike, service: TwinService): () => void {
   return () => { for (const d of disposers) d() }
 }
 
+// ── v2 学习闭环路由 ──
+function registerLearningApi(web: WebServerLike, ctx: { logger?: { info?: (...a: unknown[]) => void; warn?: (...a: unknown[]) => void } }): () => void {
+  const disposers: Array<() => void> = []
+  // GET /dsh-twin/learning：事件流水 + 候选池
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/learning',
+    handler: (_req, res) => {
+      try {
+        respondJson(res, 200, { ok: true, events: learningListEvents(), candidates: learningListCandidates() })
+      } catch (e) { respondJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  // POST /dsh-twin/learning/enqueue：入队 + 指纹聚合 + 晋升
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/learning/enqueue',
+    handler: async (req, res) => {
+      if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
+      try {
+        const body = (await readJsonBody(req)) as {
+          kind?: SignalKind
+          target?: TargetKind
+          signal?: string
+          ref?: string
+          explicitAttribution?: boolean
+          by?: string
+          threshold?: number
+        }
+        const result = learningEnqueue({
+          kind: (body.kind ?? '纠正') as SignalKind,
+          target: (body.target ?? '样例卡') as TargetKind,
+          signal: String(body.signal ?? ''),
+          ...(body.ref !== undefined && body.ref !== '' ? { ref: body.ref } : {}),
+          ...(body.explicitAttribution === true ? { explicitAttribution: true } : {}),
+          by: String(body.by ?? '主人'),
+          ...(body.threshold !== undefined ? { threshold: Number(body.threshold) } : {}),
+        }, learningLoadEvents(), learningLoadCandidates())
+        // 落盘
+        saveEvents(learningLoadEvents())
+        if (result.candidate !== undefined) saveCandidates(learningLoadCandidates())
+        respondJson(res, 200, {
+          ok: true,
+          event: result.event,
+          ...(result.candidate !== undefined ? { candidate: result.candidate } : {}),
+          promoted: result.candidate !== undefined,
+          weight: result.event.weight,
+          threshold: body.threshold ?? defaultThreshold(body.kind ?? '纠正'),
+        })
+      } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  // POST /dsh-twin/learning/confirm
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/learning/confirm',
+    handler: async (req, res) => {
+      if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
+      try {
+        const body = (await readJsonBody(req)) as { candidateId?: string; by?: string }
+        const c = learningConfirm(String(body.candidateId ?? ''), String(body.by ?? '主人'), learningLoadCandidates())
+        saveCandidates(learningLoadCandidates())
+        if (c === undefined) { respondJson(res, 404, { ok: false, error: '候选不存在' }); return }
+        respondJson(res, 200, { ok: true, candidate: c })
+      } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  // POST /dsh-twin/learning/reject
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/learning/reject',
+    handler: async (req, res) => {
+      if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
+      try {
+        const body = (await readJsonBody(req)) as { candidateId?: string; by?: string }
+        const c = learningReject(String(body.candidateId ?? ''), learningLoadCandidates(), learningLoadEvents())
+        saveCandidates(learningLoadCandidates())
+        saveEvents(learningLoadEvents())
+        if (c === undefined) { respondJson(res, 404, { ok: false, error: '候选不存在' }); return }
+        respondJson(res, 200, { ok: true, candidate: c })
+      } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  // POST /dsh-twin/learning/apply：仅在 confirmedAt + regressionReportId 齐备时生效
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/learning/apply',
+    handler: async (req, res) => {
+      if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
+      try {
+        const body = (await readJsonBody(req)) as { candidateId?: string; regressionReportId?: string }
+        const c = learningApply(String(body.candidateId ?? ''), String(body.regressionReportId ?? ''), learningLoadCandidates(), learningLoadEvents())
+        saveCandidates(learningLoadCandidates())
+        saveEvents(learningLoadEvents())
+        if (c === undefined) { respondJson(res, 404, { ok: false, error: '候选不存在' }); return }
+        if (c.confirmedAt === undefined) { respondJson(res, 400, { ok: false, error: '候选未确认（需要先 confirm）', candidate: c }); return }
+        respondJson(res, 200, { ok: true, candidate: c })
+      } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+
+  // ── v2 样例候选池路由 ──
+  // GET /dsh-twin/drafts：草稿列表
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/drafts',
+    handler: (_req, res) => {
+      try { respondJson(res, 200, { ok: true, drafts: listDrafts() }) }
+      catch (e) { respondJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  // POST /dsh-twin/drafts/mine：{texts:[...]} → 规则抽取 → 入池（调用即授权本次文本）
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/drafts/mine',
+    handler: async (req, res) => {
+      if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
+      try {
+        const body = (await readJsonBody(req)) as { texts?: unknown }
+        const texts = Array.isArray(body.texts) ? (body.texts as unknown[]).map(x => String(x)).slice(0, 500) : []
+        respondJson(res, 200, { ok: true, ...mineAndPool(texts) })
+      } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  // POST /dsh-twin/drafts/confirm：入卡（过回归才生效；无报告则停留候选修订）
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/drafts/confirm',
+    handler: async (req, res) => {
+      if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
+      try {
+        const body = (await readJsonBody(req)) as { id?: string; regressionReportId?: string; avoidSay?: string }
+        const r = confirmDraft(String(body.id ?? ''), {
+          ...(body.regressionReportId !== undefined && body.regressionReportId !== '' ? { regressionReportId: body.regressionReportId } : {}),
+          ...(body.avoidSay !== undefined && body.avoidSay !== '' ? { avoidSay: body.avoidSay } : {}),
+        })
+        respondJson(res, r.ok ? 200 : 400, r)
+      } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  // POST /dsh-twin/drafts/reject
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/drafts/reject',
+    handler: async (req, res) => {
+      if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
+      try {
+        const body = (await readJsonBody(req)) as { id?: string }
+        respondJson(res, 200, rejectDraft(String(body.id ?? '')))
+      } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+
+  ctx.logger?.info?.('[dsh-twin] v2 学习队列路由已注册 (/dsh-twin/learning/*)')
+  return () => { for (const d of disposers) d() }
+}
+
+function defaultThreshold(kind: SignalKind): number {
+  return ({ 纠正: 3, 否决: 2, 事实更正: 1, 影子差异: 5 } as Record<SignalKind, number>)[kind]
+}
+
 /** 用量/状态统计：记忆条数、类型分布、人格是否已配、模板、预设 id。 */
 export function collectStats(ctx: Context) {
   const cfg = loadConfig()
@@ -1142,6 +1326,16 @@ export function apply(ctx: Context): void {
       if (agentCtx) actorByCtx.set(agentCtx, { isMaster: Boolean(isMaster) })
     },
     presetId: PRESET_ID,
+    // v2 学习闭环：供 dsh-ledger（否决信号）与 im-channel（纠正按钮）软依赖入队
+    enqueueLearning: (input: EnqueueInput) => {
+      const evs = learningLoadEvents()
+      const cs = learningLoadCandidates()
+      const r = learningEnqueue(input, evs, cs)
+      saveEvents(evs)
+      if (r.candidate !== undefined) saveCandidates(cs)
+      return { event: r.event, promoted: r.candidate !== undefined, candidateId: r.candidate?.id }
+    },
+    learningQueue: () => ({ events: learningListEvents(), candidates: learningListCandidates() }),
   }
   // 提供服务，供其他插件消费（如 im-channel 探测 dsh-twin）
   try {
@@ -1157,6 +1351,7 @@ export function apply(ctx: Context): void {
     if (web && typeof web.register === 'function') {
       const disposers: Array<() => void> = []
       disposers.push(registerApi(web, service))
+      disposers.push(registerLearningApi(web, ctx))
       if (typeof web.effect === 'function') {
         web.effect(() => () => { for (const d of disposers) d() })
       }

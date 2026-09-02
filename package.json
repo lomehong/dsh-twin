@@ -1,7 +1,7 @@
 {
   "name": "@dsh-extra/dsh-twin",
-  "version": "0.3.0",
-  "description": "可拔插、可移植的数字分身：digital-twin 预设 + 四张人格卡（身份/策略/样例/状态）+ 纯函数投影 + 委托账本对接。人格为数据，插件为纯框架。",
+  "version": "0.4.0",
+  "description": "V2：学习闭环（信号入队/证据门槛/确认/回归门禁）+ 样例候选池与规则挖掘 + 学习队列/关系档案/影子测试 Tab + assemble 关系摘要段",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",

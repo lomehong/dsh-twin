@@ -7,6 +7,9 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { applyCards } from './cards.tsx'
+import { applyLearning } from './learning.tsx'
+import { applyProfiles } from './profiles.tsx'
+import { applyShadow } from './shadow.tsx'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
@@ -27,6 +30,10 @@ export function apply(ctx: ClientContext): void {
   )
   // v0.3：四张卡向导（独立 slot，见 ./cards.tsx）
   applyCards(ctx)
+  // v2 学习队列 / 关系档案 / 影子测试（独立 slot）
+  applyLearning(ctx)
+  applyProfiles(ctx)
+  applyShadow(ctx)
 }
 
 type Config = {
