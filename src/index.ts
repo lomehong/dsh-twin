@@ -18,6 +18,9 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import type { Context } from '@deepseek-ai/cordis'
+import { dshHome, legacyConfigPath, normalizePersonaText, normalizePersonaLine, twinWarn } from './sanitize.ts'
+import { effectiveCards, loadCardsState, saveCards, listRevisions, migrateTwinConfigToCards, normalizeCards } from './cards.ts'
+import { renderCards, projectionSummary } from './projection.ts'
 
 export const name = 'dsh-twin'
 export const provide = ['dsh-twin']
@@ -227,10 +230,6 @@ const PACKAGE_PRESET_DIR = fileURLToPath(new URL('../presets/digital-twin/', imp
 const PACKAGE_AGENT_CORDIS = join(PACKAGE_PRESET_DIR, 'agent.cordis.yml')
 const PACKAGE_PRESET_YML = join(PACKAGE_PRESET_DIR, 'preset.yml')
 
-function dshHome(): string {
-  return process.env.DSH_HOME ?? join(homedir(), '.dsh')
-}
-
 function userPresetDir(): string {
   return join(dshHome(), USER_PRESET_ROOT, PRESET_ID)
 }
@@ -242,11 +241,6 @@ function pluginDataDir(): string {
 
 function configPath(): string {
   return join(pluginDataDir(), 'twin-config.json')
-}
-
-/** v0.1.x 的历史路径（$DSH_HOME 根下）。读取时作迁移回退，保存只写新路径。 */
-function legacyConfigPath(): string {
-  return join(dshHome(), 'twin-config.json')
 }
 
 function historyPath(): string {
@@ -308,25 +302,10 @@ export function saveConfig(cfg: TwinConfig): TwinConfig {
   return loadConfig()
 }
 
-/**
- * 归一化多行人格字段：Unicode NFC → CR/LF 归一为 LF → 清除控制字符（保留换行）→
- * 折叠 3+ 连续换行 → 中和行首「#」（防在系统提示词里伪造章节结构）→ 去首尾空白。幂等。
- */
-export function sanitizePersonaText(input: unknown): string {
-  if (typeof input !== 'string') return ''
-  return input
-    .normalize('NFC')
-    .replace(/\r\n?/g, '\n')
-    .replace(/[\u0000-\u0009\u000B-\u001F\u007F\u0080-\u009F]/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/^#/gm, ' #')
-    .trim()
-}
-
-/** 归一化单行字段（名称/身份/知识种子）：在多行归一基础上折叠全部空白为单空格。幂等。 */
-export function sanitizePersonaLine(input: unknown): string {
-  return sanitizePersonaText(input).replace(/\s+/g, ' ').trim()
-}
+// v0.3 起归一化函数抽到 ./sanitize.ts 共用；保留旧导出名（兼容既有测试与外部引用）
+export { normalizePersonaText as sanitizePersonaText, normalizePersonaLine as sanitizePersonaLine } from './sanitize.ts'
+const sanitizePersonaLine = normalizePersonaLine
+const sanitizePersonaText = normalizePersonaText
 
 /** 对整个配置做入口归一化（不改变未知字段，向前兼容）。 */
 function sanitizeConfig(cfg: TwinConfig): TwinConfig {
@@ -344,14 +323,7 @@ function sanitizeConfig(cfg: TwinConfig): TwinConfig {
   const knowledge = { seeds: Array.isArray(src.knowledge?.seeds) ? src.knowledge.seeds.map(sanitizePersonaLine).filter(s => s !== '') : [] }
   return { ...src, identity, persona, knowledge }
 }
-
-function twinWarn(...args: unknown[]): void {
-  try {
-    console.warn('[dsh-twin]', ...args)
-  } catch {
-    /* 忽略 */
-  }
-}
+// twinWarn 已抽到 ./sanitize.ts（import 引入）
 function loadHistory(): HistoryEntry[] {
   try {
     const raw = JSON.parse(readFileSync(historyPath(), 'utf8')) as unknown
@@ -423,7 +395,8 @@ export function renderPersona(cfg: Partial<TwinConfig>, { guestView = false }: {
 //（无条件写死会让未装 dsh-memory 的机器上本预设因行不可解析而无法挂载）。
 // v6：决策记忆治理升级——本机部署 dsh-memory 后重物化，自动追加共享记忆工具行
 //（配合 dsh-memory v2：陈述类型/来源归因/授权/替代链，见 dsh-memory/docs/决策记忆治理-设计.md）。
-const PRESET_VERSION = '6'
+// v7：新增电脑操作能力——检测到 @dsh-extra/dsh-computer 已安装后自动追加 tool-computer 行。
+const PRESET_VERSION = '7'
 
 /** dsh-yuyi 是否已安装（同 node_modules 内可解析）。装了才给预设追加御驿工具行。 */
 function yuyiAvailable(): boolean {
@@ -445,14 +418,25 @@ function memoryAvailable(): boolean {
   }
 }
 
+/** @dsh-extra/dsh-computer 是否已安装（同 node_modules 内可解析）。决定是否追加电脑操作工具行。 */
+function computerAvailable(): boolean {
+  try {
+    createRequire(import.meta.url).resolve('@dsh-extra/dsh-computer/package.json')
+    return true
+  } catch {
+    return false
+  }
+}
+
 /** 物化时可选中依赖的探测结果（生产环境默认现场探测；测试可注入）。 */
 export interface OptionalDeps {
   memory: boolean
   yuyi: boolean
+  computer: boolean
 }
 
 function detectOptionalDeps(): OptionalDeps {
-  return { memory: memoryAvailable(), yuyi: yuyiAvailable() }
+  return { memory: memoryAvailable(), yuyi: yuyiAvailable(), computer: computerAvailable() }
 }
 
 /**
@@ -494,6 +478,12 @@ export function materializePreset(deps: OptionalDeps = detectOptionalDeps()): Ma
         id: 'tool-yuyi',
         name: 'dsh-yuyi/tools',
         comment: '御驿通信工具（dsh-twin 检测到 dsh-yuyi 已安装，自动追加）',
+      },
+      {
+        detect: deps.computer,
+        id: 'tool-computer',
+        name: '@dsh-extra/dsh-computer/tools',
+        comment: '电脑操作工具（dsh-twin 检测到 dsh-computer 已安装，自动追加）：截图/鼠标键盘/窗口管理',
       },
     ]
     const p = join(dir, 'agent.cordis.yml')
@@ -894,6 +884,88 @@ function registerApi(web: WebServerLike, service: TwinService): () => void {
       }
     },
   }))
+
+  // ── v0.3 四张卡路由 ──
+  // GET /dsh-twin/cards：当前卡 + 状态 + 修订史 + 双视图投影摘要
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/cards',
+    handler: (_req, res) => {
+      try {
+        const st = loadCardsState()
+        respondJson(res, 200, {
+          ok: true,
+          file: st.file,
+          hasEffective: st.hasEffective,
+          history: listRevisions(),
+          summary: {
+            master: projectionSummary(st.file.current, { role: 'master' }),
+            guest: projectionSummary(st.file.current, { role: 'guest' }),
+          },
+        })
+      } catch (e) {
+        respondJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) })
+      }
+    },
+  }))
+  // POST /dsh-twin/cards：保存（归一化→修订快照→生效判定）；migrate=true 时先从 legacy twin-config 迁移
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/cards',
+    handler: async (req, res) => {
+      if (req.method !== 'POST' || !sameOrigin(req)) {
+        respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' })
+        return
+      }
+      try {
+        const body = (await readJsonBody(req)) as {
+          cards?: unknown
+          confirm?: boolean
+          regressionPassed?: boolean
+          regressionReportId?: unknown
+          migrate?: boolean
+        }
+        let cards: unknown = body.cards
+        const mapping: string[] = []
+        if (body.migrate === true) {
+          const m = migrateTwinConfigToCards(loadConfig())
+          if (!m.ok) {
+            respondJson(res, 400, { ok: false, error: m.error })
+            return
+          }
+          cards = m.cards
+          mapping.push(...m.mapping)
+        }
+        const r = saveCards({
+          cards,
+          confirm: body.confirm === true,
+          regressionPassed: body.regressionPassed === true,
+          regressionReportId: body.regressionReportId,
+        })
+        respondJson(res, 200, { ok: true, ...r, mapping })
+      } catch (e) {
+        respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) })
+      }
+    },
+  }))
+  // GET /dsh-twin/cards/preview：双视图完整投影（向导预览）
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/cards/preview',
+    handler: (_req, res) => {
+      try {
+        const st = loadCardsState()
+        respondJson(res, 200, {
+          ok: true,
+          hasEffective: st.hasEffective,
+          master: renderCards(st.file.current, { role: 'master' }),
+          guest: renderCards(st.file.current, { role: 'guest' }),
+        })
+      } catch (e) {
+        respondJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) })
+      }
+    },
+  }))
   return () => { for (const d of disposers) d() }
 }
 
@@ -1033,9 +1105,13 @@ export function apply(ctx: Context): void {
           const actor = agentCtx ? actorByCtx.get(agentCtx as object) : undefined
           let imInstalled = false
           try { imInstalled = Boolean(ctx.get('im-channel')) } catch { imInstalled = false }
-          return renderPersona(loadConfig(), {
-            guestView: resolveGuestView({ imChannelInstalled: imInstalled, actorIsMaster: actor?.isMaster }),
-          })
+          const guestView = resolveGuestView({ imChannelInstalled: imInstalled, actorIsMaster: actor?.isMaster })
+          // v0.3：四张卡生效时用纯函数投影；否则回落 legacy twin-config 渲染
+          const cards = effectiveCards()
+          if (cards !== null) {
+            return renderCards(cards, { role: guestView ? 'guest' : 'master' })
+          }
+          return renderPersona(loadConfig(), { guestView })
         },
       })
       // 安全边界段（静态，防提示注入 + 提醒身份/权限边界）

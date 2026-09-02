@@ -6,6 +6,7 @@
  * 插件=纯框架，人格=数据（twin-config.json），可导入导出随身携带。
  */
 import { useState, useEffect, useCallback } from 'react'
+import { applyCards } from './cards.tsx'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
@@ -24,6 +25,8 @@ export function apply(ctx: ClientContext): void {
       TwinSettingsPage,
     ),
   )
+  // v0.3：四张卡向导（独立 slot，见 ./cards.tsx）
+  applyCards(ctx)
 }
 
 type Config = {

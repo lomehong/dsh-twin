@@ -44,13 +44,7 @@ export interface HistoryEntry {
 export declare function defaultConfig(): TwinConfig;
 export declare function loadConfig(): TwinConfig;
 export declare function saveConfig(cfg: TwinConfig): TwinConfig;
-/**
- * 归一化多行人格字段：Unicode NFC → CR/LF 归一为 LF → 清除控制字符（保留换行）→
- * 折叠 3+ 连续换行 → 中和行首「#」（防在系统提示词里伪造章节结构）→ 去首尾空白。幂等。
- */
-export declare function sanitizePersonaText(input: unknown): string;
-/** 归一化单行字段（名称/身份/知识种子）：在多行归一基础上折叠全部空白为单空格。幂等。 */
-export declare function sanitizePersonaLine(input: unknown): string;
+export { normalizePersonaText as sanitizePersonaText, normalizePersonaLine as sanitizePersonaLine } from './sanitize.ts';
 /** 保存前把旧配置归档为版本快照（保留最近 10 个）。 */
 export declare function archiveHistory(cfg: TwinConfig): void;
 export declare function listHistory(): Array<{
@@ -71,6 +65,7 @@ export declare function renderPersona(cfg: Partial<TwinConfig>, { guestView }?: 
 export interface OptionalDeps {
     memory: boolean;
     yuyi: boolean;
+    computer: boolean;
 }
 /**
  * 把内置预设物化到用户 agent-presets 根（版本化幂等）。返回是否本次写入。
