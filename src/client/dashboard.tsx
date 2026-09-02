@@ -17,9 +17,10 @@ interface DashboardData {
   pendingShadow: Array<{ id: string; visitorInput: string }>
   ledger: { pendingApprovals: number; blocked: number; total: number }
   regressions: Array<{ id: string; at: string; total: number; passed: number }>
+  reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }>
 }
 
-const EMPTY: DashboardData = { candidates: [], openLoops: [], pendingShadow: [], ledger: { pendingApprovals: 0, blocked: 0, total: 0 }, regressions: [] }
+const EMPTY: DashboardData = { candidates: [], openLoops: [], pendingShadow: [], ledger: { pendingApprovals: 0, blocked: 0, total: 0 }, regressions: [], reaches: [] }
 
 export function applyDashboard(ctx: ClientContext): void {
   ctx.slots.inject('conversation.view', () =>
@@ -71,12 +72,13 @@ export function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [learning, profiles, shadow, ledger, regressions] = await Promise.all([
+      const [learning, profiles, shadow, ledger, regressions, proactive] = await Promise.all([
         api<{ candidates: Array<{ id: string; kind: string; payload: Record<string, unknown>; createdAt: string }> }>('/dsh-twin/learning').catch(() => null),
         api<{ profiles: Array<{ entity: { id: string; displayName?: string }; openLoops: Array<{ memoryId: string; content: string; openedAt: string }> }> }>('/dsh-actors/profiles').catch(() => null),
         api<{ pairs: Array<{ id: string; visitorInput: string }> }>('/dsh-regression/shadow/pending').catch(() => null),
         api<{ stats?: { pendingApprovals: number; byStatus?: Record<string, number>; total?: number } }>('/dsh-ledger/stats').catch(() => null),
         api<{ reports: Array<{ id: string; at: string; total: number; passed: number }> }>('/dsh-regression/reports').catch(() => null),
+        api<{ reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }> }>('/dsh-twin/proactive').catch(() => null),
       ])
       const openLoops = (profiles?.profiles ?? []).flatMap(p =>
         (p.openLoops ?? []).map(o => ({ actorId: p.entity.id, displayName: p.entity.displayName, memoryId: o.memoryId, content: o.content, openedAt: o.openedAt })),
@@ -91,6 +93,7 @@ export function DashboardPage() {
           total: ledger?.stats?.total ?? 0,
         },
         regressions: (regressions?.reports ?? []).slice(0, 1),
+        reaches: (proactive?.reaches ?? []).slice(-8),
       })
       setLoaded(true)
       setErr('')
@@ -233,6 +236,19 @@ export function DashboardPage() {
           <span style={s.chip}>账本</span>
           <span style={s.itemText}>累计裁决 {d.ledger.total} 笔 · 已阻断 {d.ledger.blocked}</span>
         </div>
+      )}
+
+      {d.reaches.length > 0 && (
+        <>
+          <div style={s.section}>主动触达记录（最近 {d.reaches.length}）</div>
+          {d.reaches.map(r => (
+            <div key={r.id} style={s.item}>
+              <span style={s.chip}>{r.kind}</span>
+              <span style={s.itemText}>{r.title}</span>
+              <span style={{ ...s.chip, color: r.status === '已触达' ? 'var(--dsw-alias-state-success-primary)' : r.status === '被阻断' ? 'var(--dsw-alias-state-error-primary)' : 'var(--dsw-alias-state-warn-primary)' }}>{r.status}</span>
+            </div>
+          ))}
+        </>
       )}
 
       {err && <div style={s.err}>加载部分失败：{err}（数据源插件可能未全部装载）</div>}

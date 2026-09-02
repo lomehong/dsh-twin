@@ -22,6 +22,7 @@ import { dshHome, legacyConfigPath, normalizePersonaText, normalizePersonaLine, 
 import { effectiveCards, loadCardsState, saveCards, listRevisions, migrateTwinConfigToCards, normalizeCards } from './cards.ts'
 import { renderCards, projectionSummary } from './projection.ts'
 import { mineAndPool, listDrafts, confirmDraft, rejectDraft } from './drafts.ts'
+import { ingestStateSeeds, pruneExpiredState, buildReachCandidates, deliverReach, tick, loadProactive } from './proactive.ts'
 import {
   enqueue as learningEnqueue,
   confirmCandidate as learningConfirm,
@@ -1159,6 +1160,52 @@ function defaultThreshold(kind: SignalKind): number {
   return ({ 纠正: 3, 否决: 2, 事实更正: 1, 影子差异: 5 } as Record<SignalKind, number>)[kind]
 }
 
+// ── v3 主动触达路由 ──
+function registerProactiveApi(web: WebServerLike): () => void {
+  const disposers: Array<() => void> = []
+  // GET /dsh-twin/proactive：触达记录（今日待办 / 审计用）
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/proactive',
+    handler: (_req, res) => {
+      try { respondJson(res, 200, { ok: true, reaches: loadProactive().reaches.slice(-50) }) }
+      catch (e) { respondJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  // GET /dsh-twin/proactive/candidates：预览候选（不发送，仅看）
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/proactive/candidates',
+    handler: (_req, res) => {
+      try {
+        respondJson(res, 200, { ok: true, candidates: buildReachCandidates({}) })
+      } catch (e) { respondJson(res, 500, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  // POST /dsh-twin/proactive/tick：手动触发一轮（测试/运维用）
+  disposers.push(web.register({
+    kind: 'exact',
+    path: '/dsh-twin/proactive/tick',
+    handler: async (req, res) => {
+      if (req.method !== 'POST' || !sameOrigin(req)) {
+        respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' })
+        return
+      }
+      try {
+        // ledger / im 经 ctx 获取：这里只用空依赖走「预览无发送」语义，
+        // 真实 tick 由宿主定时器执行；手动 tick 仅提供审计。
+        respondJson(res, 200, { ok: true, note: '手动 tick 只预览候选；发送由宿主定时器执行', candidates: buildReachCandidates({}) })
+      } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
+    },
+  }))
+  ctxLogger()
+  return () => { for (const d of disposers) d() }
+}
+
+function ctxLogger(): void {
+  // 占位：路由注册日志在调用方（apply）统一
+}
+
 /** 用量/状态统计：记忆条数、类型分布、人格是否已配、模板、预设 id。 */
 export function collectStats(ctx: Context) {
   const cfg = loadConfig()
@@ -1359,10 +1406,53 @@ export function apply(ctx: Context): void {
       const disposers: Array<() => void> = []
       disposers.push(registerApi(web, service))
       disposers.push(registerLearningApi(web, ctx))
+      disposers.push(registerProactiveApi(web))
       if (typeof web.effect === 'function') {
         web.effect(() => () => { for (const d of disposers) d() })
       }
       ctx.logger?.info?.('[dsh-twin] API 路由已注册 (/dsh-twin/config)')
     }
   })
+
+  // 5) v3 主动触达调度器：定期 tick（状态卡汇入 → 候选 → 过闸 → 送达）+ 过期清理
+  try {
+    // cordis Context 未声明 'timer' 事件：用结构化视图转义，宿主提供才挂接
+    const ctxEvents = ctx as unknown as { on?: (event: string, handler: () => void) => unknown }
+    ctxEvents.on?.('timer', () => {
+      void (async () => {
+        try {
+          // 状态卡：清理过期 + 从各源汇入
+          pruneExpiredState()
+          const memSvc = ctx.get('dsh-memory') as
+            | { openLoopsForActor?: (a: string) => Array<{ content: string }>; loadSharedMemory?: () => Array<{ relation?: unknown; content?: unknown }> }
+            | undefined
+          const seeds: Array<{ content: string; source: string }> = []
+          for (const e of memSvc?.loadSharedMemory?.() ?? []) {
+            const rel = e.relation as { actorId?: string; openLoop?: { closedAt?: string } } | undefined
+            if (rel?.openLoop !== undefined && rel.openLoop.closedAt === undefined) {
+              seeds.push({ content: `未闭环：${String(e.content ?? '').slice(0, 100)}`, source: '关系轨' })
+            }
+          }
+          ingestStateSeeds(seeds)
+
+          // 主动触达：生成候选 → 过闸送达（im-channel 软依赖）
+          const ledgerSvc = ctx.get('dsh-ledger') as
+            | { check?: (i: unknown, o?: unknown) => unknown; pendingApprovals?: () => Array<Record<string, unknown>> }
+            | undefined
+          const imSvc = ctx.get('im-channel') as
+            | { pushToUser?: (k: string, u: string, t: string, o?: object) => Promise<boolean> | boolean; botsStatus?: () => Array<{ kind: string; bindings?: Array<{ userId: string; isMaster?: boolean }> }> }
+            | undefined
+          const tickDeps: Partial<{ ledger: NonNullable<typeof ledgerSvc>; memory: NonNullable<typeof memSvc>; im: NonNullable<typeof imSvc> }> = {}
+          if (ledgerSvc !== undefined) tickDeps.ledger = ledgerSvc
+          if (memSvc !== undefined) tickDeps.memory = memSvc
+          if (imSvc !== undefined) tickDeps.im = imSvc
+          await tick(tickDeps as Parameters<typeof tick>[0])
+        } catch {
+          /* tick 失败不击穿插件 */
+        }
+      })()
+    })
+  } catch {
+    /* 宿主无 timer 事件面则跳过（路由仍可手动 tick） */
+  }
 }
