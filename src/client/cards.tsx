@@ -41,18 +41,18 @@ const EMPTY: Cards = {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  sec: { fontSize: 13, fontWeight: 700, margin: '18px 0 8px', color: '#333' },
-  hint: { fontSize: 12, color: '#8a8f9c', marginBottom: 10 },
+  sec: { fontSize: 13, fontWeight: 700, margin: '18px 0 8px', color: 'var(--dsw-alias-label-primary)' },
+  hint: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', marginBottom: 10 },
   row: { display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' as const },
   input: { flex: '1 1 160px', padding: '5px 8px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13 },
   small: { padding: '5px 8px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13 },
   wide: { width: '100%', padding: '5px 8px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' as const },
-  btn: { padding: '6px 14px', border: 'none', borderRadius: 6, background: '#4a6cf7', color: '#fff', fontSize: 13, cursor: 'pointer' },
-  btn2: { padding: '6px 14px', border: '1px solid #ddd', borderRadius: 6, background: '#fff', color: '#555', fontSize: 13, cursor: 'pointer' },
-  del: { padding: '4px 10px', border: '1px solid #eee', borderRadius: 6, background: '#fff', color: '#b03a44', fontSize: 12, cursor: 'pointer' },
+  btn: { padding: '6px 14px', border: 'none', borderRadius: 6, background: 'var(--dsw-alias-state-business-primary)', color: '#fff', fontSize: 13, cursor: 'pointer' },
+  btn2: { padding: '6px 14px', border: '1px solid #ddd', borderRadius: 6, background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-secondary)', fontSize: 13, cursor: 'pointer' },
+  del: { padding: '4px 10px', border: '1px solid #eee', borderRadius: 6, background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-state-error-primary)', fontSize: 12, cursor: 'pointer' },
   status: { fontSize: 12.5, padding: '8px 10px', borderRadius: 6, margin: '10px 0' },
-  rev: { fontSize: 12, color: '#8a8f9c', lineHeight: 1.8 },
-  pre: { background: '#f6f7f9', border: '1px solid #eee', borderRadius: 6, padding: 10, fontSize: 12, whiteSpace: 'pre-wrap' as const, maxHeight: 260, overflow: 'auto' },
+  rev: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', lineHeight: 1.8 },
+  pre: { background: 'var(--dsw-alias-bg-layer-1)', border: '1px solid #eee', borderRadius: 6, padding: 10, fontSize: 12, whiteSpace: 'pre-wrap' as const, maxHeight: 260, overflow: 'auto' },
 }
 
 export function applyCards(ctx: ClientContext): void {
@@ -129,7 +129,7 @@ function CardsPage() {
         四张卡是分身人格的结构化数据：身份卡（公开/私密分级——私密字段访客视图结构性缺失）、策略卡（触发→动作→升级，逐条可测试）、
         样例卡（这么说/不这么说）、状态卡（随时间衰减）。生效 = <b>主人确认 + 回归通过</b> 双条件，缺一保存为候选修订。
       </p>
-      <div style={{ ...s.status, background: meta.hasEffective ? '#e9f5ef' : '#fbf3e7', color: meta.hasEffective ? '#1d7a53' : '#b06a1f' }}>
+      <div style={{ ...s.status, background: meta.hasEffective ? 'var(--dsw-alias-state-success-tertiary)' : 'var(--dsw-alias-state-warn-tertiary)', color: meta.hasEffective ? 'var(--dsw-alias-state-success-primary)' : 'var(--dsw-alias-state-warn-label)' }}>
         当前状态：{meta.hasEffective ? '✓ 生效' : '候选（旧生效卡或 legacy 渲染中）'} · 修订号 {meta.revisionNo}
       </div>
 
@@ -232,7 +232,7 @@ function CardsPage() {
         <button style={s.btn2} onClick={() => void load()}>刷新</button>
       </div>
       {msg !== null && (
-        <div style={{ ...s.status, background: msg.ok ? '#e9f5ef' : '#fbf3e7', color: msg.ok ? '#1d7a53' : '#b06a1f' }}>{msg.text}</div>
+        <div style={{ ...s.status, background: msg.ok ? 'var(--dsw-alias-state-success-tertiary)' : 'var(--dsw-alias-state-warn-tertiary)', color: msg.ok ? 'var(--dsw-alias-state-success-primary)' : 'var(--dsw-alias-state-warn-label)' }}>{msg.text}</div>
       )}
 
       {preview !== null && (

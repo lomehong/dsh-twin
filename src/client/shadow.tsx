@@ -33,25 +33,25 @@ export function applyShadow(ctx: ClientContext): void {
 const s: Record<string, React.CSSProperties> = {
   wrap: { padding: '20px', maxWidth: '760px' },
   h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
-  sub: { fontSize: '13px', color: '#888', margin: '0 0 16px 0' },
+  sub: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary)', margin: '0 0 16px 0' },
   statsRow: { display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' as const },
-  statCard: { flex: '1 1 140px', background: '#fff', border: '1px solid #eee', borderRadius: 10, padding: 14, textAlign: 'center' as const },
+  statCard: { flex: '1 1 140px', background: 'var(--dsw-alias-bg-layer-2)', border: '1px solid #eee', borderRadius: 10, padding: 14, textAlign: 'center' as const },
   statNum: { fontSize: 26, fontWeight: 800 },
-  statNm: { fontSize: 12, color: '#8a8f9c', marginTop: 2 },
-  sec: { fontSize: 13.5, fontWeight: 700, margin: '18px 0 8px', color: '#444' },
-  pair: { border: '1px solid #eee', borderRadius: 10, padding: 14, marginBottom: 12, background: '#fff' },
-  q: { fontSize: 13, color: '#444', marginBottom: 8 },
+  statNm: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', marginTop: 2 },
+  sec: { fontSize: 13.5, fontWeight: 700, margin: '18px 0 8px', color: 'var(--dsw-alias-label-primary)' },
+  pair: { border: '1px solid #eee', borderRadius: 10, padding: 14, marginBottom: 12, background: 'var(--dsw-alias-bg-layer-2)' },
+  q: { fontSize: 13, color: 'var(--dsw-alias-label-primary)', marginBottom: 8 },
   reply: { borderRadius: 8, padding: 10, fontSize: 13, marginBottom: 8, lineHeight: 1.6 },
   masterC: { background: '#eef7f1', border: '1px solid #cfe5d8' },
   twinC: { background: '#eef0fb', border: '1px solid #c9cff2' },
   tag: { fontSize: 11, fontWeight: 700, display: 'inline-block', marginBottom: 4 },
   btnRow: { display: 'flex', gap: 8 },
-  jbtn: { flex: 1, padding: '7px 0', border: '1px solid #ddd', borderRadius: 6, background: '#fff', fontSize: 12.5, cursor: 'pointer' },
+  jbtn: { flex: 1, padding: '7px 0', border: '1px solid #ddd', borderRadius: 6, background: 'var(--dsw-alias-bg-layer-2)', fontSize: 12.5, cursor: 'pointer' },
   input: { width: '100%', boxSizing: 'border-box' as const, padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, marginBottom: 8 },
-  btn: { padding: '8px 18px', border: 'none', borderRadius: 4, fontSize: 13, cursor: 'pointer', background: '#4a6cf7', color: '#fff' },
-  ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, cursor: 'pointer', background: '#fff', color: '#444' },
-  hint: { fontSize: 12, color: '#8a8f9c', background: '#f6f7f9', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px', marginTop: 8 },
-  empty: { fontSize: 13, color: '#8a8f9c' },
+  btn: { padding: '8px 18px', border: 'none', borderRadius: 4, fontSize: 13, cursor: 'pointer', background: 'var(--dsw-alias-state-business-primary)', color: '#fff' },
+  ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)' },
+  hint: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', background: 'var(--dsw-alias-bg-layer-1)', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px', marginTop: 8 },
+  empty: { fontSize: 13, color: 'var(--dsw-alias-label-tertiary)' },
 }
 
 export function ShadowPage() {
@@ -106,7 +106,7 @@ export function ShadowPage() {
 
       <div style={s.statsRow}>
         <div style={s.statCard}>
-          <div className="n" style={{ ...s.statNum, color: rate === null ? '#c6cbd8' : rate >= 0.5 ? '#1d7a53' : '#b06a1f' }}>
+          <div className="n" style={{ ...s.statNum, color: rate === null ? 'var(--dsw-alias-label-tertiary)' : rate >= 0.5 ? 'var(--dsw-alias-state-success-primary)' : 'var(--dsw-alias-state-warn-label)' }}>
             {rate === null ? '—' : `${Math.round(rate * 100)}%`}
           </div>
           <div style={s.statNm}>分辨不出率（30 天）</div>
@@ -116,7 +116,7 @@ export function ShadowPage() {
           <div style={s.statNm}>已判定样本</div>
         </div>
         <div style={s.statCard}>
-          <div style={{ ...s.statNum, color: '#8a92a6' }}>{stats?.breakdown['未判定'] ?? 0}</div>
+          <div style={{ ...s.statNum, color: 'var(--dsw-alias-label-tertiary)' }}>{stats?.breakdown['未判定'] ?? 0}</div>
           <div style={s.statNm}>待判定</div>
         </div>
       </div>
@@ -128,7 +128,7 @@ export function ShadowPage() {
             <div key={p.id} style={s.pair}>
               <div style={s.q}>访客：{p.visitorInput}</div>
               <div style={{ ...s.reply, ...s.masterC }}>
-                <span style={{ ...s.tag, color: '#1d7a53' }}>回复 A</span>
+                <span style={{ ...s.tag, color: 'var(--dsw-alias-state-success-primary)' }}>回复 A</span>
                 <br />
                 {p.masterReply}
               </div>
@@ -156,7 +156,7 @@ export function ShadowPage() {
       <input style={s.input} value={form.twinReply} onChange={e => setForm(f => ({ ...f, twinReply: e.target.value }))} placeholder="分身的回复" />
       <button style={s.btn} onClick={() => void addPair()}>添加</button>
       <button style={s.ghost} onClick={() => void load()}>{'刷新'}</button>
-      {msg && <div style={{ ...s.hint, color: msg.ok ? '#1d7a53' : '#b03a44' }}>{msg.text}</div>}
+      {msg && <div style={{ ...s.hint, color: msg.ok ? 'var(--dsw-alias-state-success-primary)' : 'var(--dsw-alias-state-error-primary)' }}>{msg.text}</div>}
       <div style={s.hint}>隐私：盲测对仅本地存储（0600）；统计只落指标不落原文；已判定且超 90 天的对自动清理。</div>
     </div>
   )

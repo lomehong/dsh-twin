@@ -163,6 +163,10 @@ export function saveCandidates(store: CandidateStore): void {
 
 /* ── 入队 + 指纹聚合 + 晋升（纯层：决议；不落盘） ── */
 
+function kindIsCorrective(kind: SignalKind): boolean {
+  return kind === '纠正'
+}
+
 export interface EnqueueInput {
   kind: SignalKind
   /** 原始信号文本（用于指纹与候选 situation） */
@@ -192,7 +196,9 @@ export function enqueue(input: EnqueueInput, existing: LearningStore, existingCa
   if (sig === '') throw new Error('learning signal 指纹为空')
   // target 缺省 = 样例卡（纠正→样例卡 是设计的默认路由）
   const target: TargetKind = input.target ?? '样例卡'
-  const threshold = input.threshold ?? DEFAULT_N[input.kind]
+  // kind 白名单外（含编码坏损）一律回落「纠正」；阈值查表失败兜底 2（介于纠正与批准之间偏保守）
+  const kind: SignalKind = (DEFAULT_N[input.kind] !== undefined ? input.kind : '纠正') as SignalKind
+  const threshold = input.threshold ?? (DEFAULT_N[kind] ?? 2)
   const explicit = input.explicitAttribution === true
   // 同类判定：指纹相等（已归一）+ 同一 target
   const sameFamily = existing.events.filter(e => e.sig === sig && e.target === target && e.status !== '已驳回')
@@ -203,7 +209,7 @@ export function enqueue(input: EnqueueInput, existing: LearningStore, existingCa
   const event: LearningEvent = {
     id: genId('LE'),
     ts: new Date().toISOString(),
-    kind: input.kind,
+    kind,
     sig,
     target,
     ...(input.ref !== undefined && input.ref !== '' ? { ref: input.ref.slice(0, 200) } : {}),
@@ -233,7 +239,7 @@ export function enqueue(input: EnqueueInput, existing: LearningStore, existingCa
 function buildCandidate(event: LearningEvent, sig: string, target: TargetKind, input: EnqueueInput): LearningCandidate {
   const payload: ExemplarCandidate | PolicyCandidate | MemoryCandidate =
     target === '样例卡'
-      ? { situation: sig, say: '', avoidSay: '', source: input.kind === '纠正' ? '纠正' : '语料', ...(input.ref !== undefined ? { sourceRef: input.ref } : {}) }
+      ? { situation: sig, say: '', avoidSay: '', source: kindIsCorrective(input.kind) ? '纠正' : '语料', ...(input.ref !== undefined ? { sourceRef: input.ref } : {}) }
       : target === '策略卡'
         ? { op: '新增', when: sig, act: '', enabled: true }
         : { op: '替代', ...(input.ref !== undefined ? { memoryId: input.ref } : {}) }

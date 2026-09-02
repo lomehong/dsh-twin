@@ -15,7 +15,7 @@ interface Profile {
 }
 
 const ROLE_LABEL: Record<string, string> = { master: '主人', colleague: '同事', customer: '客户', stranger: '生人', blocked: '黑名单' }
-const ROLE_COLOR: Record<string, string> = { master: '#1d7a53', colleague: '#3f51c1', customer: '#b06a1f', stranger: '#8a92a6', blocked: '#b03a44' }
+const ROLE_COLOR: Record<string, string> = { master: 'var(--dsw-alias-state-success-primary)', colleague: '#3f51c1', customer: 'var(--dsw-alias-state-warn-label)', stranger: 'var(--dsw-alias-label-tertiary)', blocked: 'var(--dsw-alias-state-error-primary)' }
 
 export function applyProfiles(ctx: ClientContext): void {
   ctx.slots.inject('settings.section', () =>
@@ -29,20 +29,20 @@ export function applyProfiles(ctx: ClientContext): void {
 const s: Record<string, React.CSSProperties> = {
   wrap: { padding: '20px', maxWidth: '760px' },
   h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
-  sub: { fontSize: '13px', color: '#888', margin: '0 0 16px 0' },
-  card: { border: '1px solid #eee', borderRadius: 10, padding: 14, marginBottom: 12, background: '#fff' },
+  sub: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary)', margin: '0 0 16px 0' },
+  card: { border: '1px solid #eee', borderRadius: 10, padding: 14, marginBottom: 12, background: 'var(--dsw-alias-bg-layer-2)' },
   head: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' as const },
   name: { fontSize: 15, fontWeight: 700 },
   roleBadge: { fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 4 },
-  ch: { fontSize: 11, color: '#8a92a6' },
-  sec: { fontSize: 12.5, fontWeight: 700, color: '#444', margin: '10px 0 4px' },
-  item: { fontSize: 13, color: '#444', padding: '4px 0', borderBottom: '1px dashed #f0f0f0' },
-  loop: { background: '#fbf3e7', border: '1px solid #f0dfc0', borderRadius: 6, padding: '6px 10px', marginBottom: 6, fontSize: 13, color: '#7a5b23' },
-  loopBtn: { float: 'right' as const, fontSize: 11, padding: '1px 8px', border: '1px solid #1d7a53', borderRadius: 4, background: '#e9f5ef', color: '#1d7a53', cursor: 'pointer' },
-  ts: { color: '#b0b6c2', fontSize: 11, marginRight: 6 },
-  empty: { fontSize: 13, color: '#8a8f9c', background: '#f6f7f9', border: '1px solid #eee', borderRadius: 6, padding: 12 },
-  btn: { padding: '8px 18px', border: 'none', borderRadius: 4, fontSize: '13px', cursor: 'pointer', background: '#4a6cf7', color: '#fff' },
-  inferred: { fontSize: 10.5, color: '#b06a1f', border: '1px solid #ecd9c0', borderRadius: 3, padding: '0 4px', marginRight: 4 },
+  ch: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' },
+  sec: { fontSize: 12.5, fontWeight: 700, color: 'var(--dsw-alias-label-primary)', margin: '10px 0 4px' },
+  item: { fontSize: 13, color: 'var(--dsw-alias-label-primary)', padding: '4px 0', borderBottom: '1px dashed #f0f0f0' },
+  loop: { background: 'var(--dsw-alias-state-warn-tertiary)', border: '1px solid #f0dfc0', borderRadius: 6, padding: '6px 10px', marginBottom: 6, fontSize: 13, color: 'var(--dsw-alias-state-warn-label)' },
+  loopBtn: { float: 'right' as const, fontSize: 11, padding: '1px 8px', border: '1px solid #1d7a53', borderRadius: 4, background: 'var(--dsw-alias-state-success-tertiary)', color: 'var(--dsw-alias-state-success-primary)', cursor: 'pointer' },
+  ts: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, marginRight: 6 },
+  empty: { fontSize: 13, color: 'var(--dsw-alias-label-tertiary)', background: 'var(--dsw-alias-bg-layer-1)', border: '1px solid #eee', borderRadius: 6, padding: 12 },
+  btn: { padding: '8px 18px', border: 'none', borderRadius: 4, fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-state-business-primary)', color: '#fff' },
+  inferred: { fontSize: 10.5, color: 'var(--dsw-alias-state-warn-label)', border: '1px solid #ecd9c0', borderRadius: 3, padding: '0 4px', marginRight: 4 },
 }
 
 export function ProfilesPage() {
@@ -87,7 +87,7 @@ export function ProfilesPage() {
         <div key={p.entity.id} style={s.card}>
           <div style={s.head}>
             <span style={s.name}>{p.entity.displayName || p.entity.id}</span>
-            <span style={{ ...s.roleBadge, background: `${ROLE_COLOR[p.entity.role] ?? '#8a92a6'}1a`, color: ROLE_COLOR[p.entity.role] ?? '#555' }}>
+            <span style={{ ...s.roleBadge, background: `${ROLE_COLOR[p.entity.role] ?? 'var(--dsw-alias-label-tertiary)'}1a`, color: ROLE_COLOR[p.entity.role] ?? 'var(--dsw-alias-label-secondary)' }}>
               {ROLE_LABEL[p.entity.role] ?? p.entity.role}
             </span>
             <span style={s.ch}>{p.entity.bindings.map(b => b.channel).join(' · ')}</span>
@@ -100,13 +100,13 @@ export function ProfilesPage() {
                 <div key={o.memoryId} style={s.loop}>
                   <button style={s.loopBtn} onClick={() => void closeLoop(o.memoryId)}>标记闭环</button>
                   <span className="t">{o.content}</span>
-                  <span style={{ color: '#b0a080', fontSize: 11, marginLeft: 8 }}>{o.openedAt.slice(0, 10)}</span>
+                  <span style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, marginLeft: 8 }}>{o.openedAt.slice(0, 10)}</span>
                 </div>
               ))}
             </>
           )}
           <div style={s.sec}>观察 / 推断（最近 {p.observations.length}）</div>
-          {p.observations.length === 0 && <div style={{ ...s.item, color: '#b0b6c2' }}>暂无</div>}
+          {p.observations.length === 0 && <div style={{ ...s.item, color: 'var(--dsw-alias-label-tertiary)' }}>暂无</div>}
           {p.observations.map(o => (
             <div key={o.memoryId} style={s.item}>
               <span style={s.ts}>{o.ts.slice(0, 10)}</span>

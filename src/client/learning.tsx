@@ -68,29 +68,29 @@ export function applyLearning(ctx: ClientContext): void {
 const s: Record<string, React.CSSProperties> = {
   wrap: { padding: '20px', maxWidth: '720px' },
   h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
-  sub: { fontSize: '13px', color: '#888', margin: '0 0 16px 0' },
-  secTitle: { fontSize: '14px', fontWeight: 700, margin: '18px 0 8px 0', color: '#444' },
-  label: { display: 'block', fontSize: '12px', color: '#666', margin: '6px 0 4px 0' },
+  sub: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary)', margin: '0 0 16px 0' },
+  secTitle: { fontSize: '14px', fontWeight: 700, margin: '18px 0 8px 0', color: 'var(--dsw-alias-label-primary)' },
+  label: { display: 'block', fontSize: '12px', color: 'var(--dsw-alias-label-secondary)', margin: '6px 0 4px 0' },
   input: { width: '100%', boxSizing: 'border-box', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' },
   textarea: { width: '100%', boxSizing: 'border-box', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', minHeight: '60px', resize: 'vertical' },
   select: { padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', marginRight: 8 },
   row: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' as const, marginTop: 8 },
-  btn: { padding: '8px 18px', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: '#4a6cf7', color: '#fff' },
-  ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: '#fff', color: '#444' },
-  ok: { padding: '6px 14px', border: '1px solid #1d7a53', borderRadius: '4px', background: '#e9f5ef', color: '#1d7a53', fontSize: '13px', cursor: 'pointer' },
-  bad: { padding: '6px 14px', border: '1px solid #b03a44', borderRadius: '4px', background: '#faeced', color: '#b03a44', fontSize: '13px', cursor: 'pointer' },
-  hint: { fontSize: '12px', color: '#8a8f9c', background: '#f6f7f9', border: '1px solid #eee', borderRadius: '6px', padding: '8px 10px', marginTop: 8 },
-  card: { border: '1px solid #eee', borderRadius: 8, padding: 12, marginBottom: 10, background: '#fff' },
+  btn: { padding: '8px 18px', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-state-business-primary)', color: '#fff' },
+  ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)' },
+  ok: { padding: '6px 14px', border: '1px solid #1d7a53', borderRadius: '4px', background: 'var(--dsw-alias-state-success-tertiary)', color: 'var(--dsw-alias-state-success-primary)', fontSize: '13px', cursor: 'pointer' },
+  bad: { padding: '6px 14px', border: '1px solid #b03a44', borderRadius: '4px', background: 'var(--dsw-alias-interactive-bg-hover-danger)', color: 'var(--dsw-alias-state-error-primary)', fontSize: '13px', cursor: 'pointer' },
+  hint: { fontSize: '12px', color: 'var(--dsw-alias-label-tertiary)', background: 'var(--dsw-alias-bg-layer-1)', border: '1px solid #eee', borderRadius: '6px', padding: '8px 10px', marginTop: 8 },
+  card: { border: '1px solid #eee', borderRadius: 8, padding: 12, marginBottom: 10, background: 'var(--dsw-alias-bg-layer-2)' },
   badge: { display: 'inline-block', padding: '1px 8px', borderRadius: 4, fontSize: '11px', fontWeight: 600 },
-  status: { fontSize: '13px', marginTop: 10, color: '#4a6cf7' },
+  status: { fontSize: '13px', marginTop: 10, color: 'var(--dsw-alias-state-business-primary)' },
 }
 
 function statusBadge(st: string): React.CSSProperties {
   const palette: Record<string, { bg: string; fg: string; b: string }> = {
-    '观察': { bg: '#f6f7f9', fg: '#8a92a6', b: '#eee' },
-    '候选修订': { bg: '#eef0fb', fg: '#3f51c1', b: '#c9cff2' },
-    '已入卡': { bg: '#e9f5ef', fg: '#1d7a53', b: '#c2e0cd' },
-    '已驳回': { bg: '#faeced', fg: '#b03a44', b: '#ecc8cb' },
+    '观察': { bg: 'var(--dsw-alias-bg-layer-1)', fg: 'var(--dsw-alias-label-tertiary)', b: 'var(--dsw-alias-border-l1)' },
+    '候选修订': { bg: '#eef0fb', fg: '#3f51c1', b: 'var(--dsw-alias-border-l2)' },
+    '已入卡': { bg: 'var(--dsw-alias-state-success-tertiary)', fg: 'var(--dsw-alias-state-success-primary)', b: '#c2e0cd' },
+    '已驳回': { bg: 'var(--dsw-alias-interactive-bg-hover-danger)', fg: 'var(--dsw-alias-state-error-primary)', b: '#ecc8cb' },
   }
   const c = palette[st] ?? palette['观察']!
   return { ...s.badge, background: c.bg, color: c.fg, border: `1px solid ${c.b}` }
@@ -172,17 +172,17 @@ function LearningPage() {
         {regressionReportId && <span style={s.hint}>待应用 reportId: <code>{regressionReportId}</code></span>}
       </div>
 
-      {msg && <div style={{ ...s.status, color: msg.ok ? '#1d7a53' : '#b03a44' }}>{msg.text}</div>}
+      {msg && <div style={{ ...s.status, color: msg.ok ? 'var(--dsw-alias-state-success-primary)' : 'var(--dsw-alias-state-error-primary)' }}>{msg.text}</div>}
 
-      <div style={s.secTitle}>候选池（{data.c.filter(c => c.status === '候选修订').length}）</div>
+      <div style={s.secTitle}>候选池（{data.candidates.filter(c => c.status === '候选修订').length}）</div>
       {data.candidates.filter(c => c.status === '候选修订' || c.status === '已驳回' || c.status === '已入卡').slice(-20).reverse().map(c => (
         <div key={c.id} style={s.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <span style={statusBadge(c.status)}>{c.status}</span>
-            <code style={{ fontSize: 11, color: '#8a92a6' }}>{c.id}</code>
-            <span style={{ fontSize: 12, color: '#666' }}>· {c.kind} · 关联事件 {c.eventIds.length}</span>
+            <code style={{ fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' }}>{c.id}</code>
+            <span style={{ fontSize: 12, color: 'var(--dsw-alias-label-secondary)' }}>· {c.kind} · 关联事件 {c.eventIds.length}</span>
           </div>
-          <pre style={{ fontSize: 12, background: '#f6f7f9', padding: 8, borderRadius: 4, overflow: 'auto', maxHeight: 120, margin: 0 }}>
+          <pre style={{ fontSize: 12, background: 'var(--dsw-alias-bg-layer-1)', padding: 8, borderRadius: 4, overflow: 'auto', maxHeight: 120, margin: 0 }}>
             {JSON.stringify(c.payload, null, 2)}
           </pre>
           {c.status === '候选修订' && (
@@ -203,9 +203,9 @@ function LearningPage() {
       {data.events.slice(-15).reverse().map(e => (
         <div key={e.id} style={{ ...s.card, padding: '6px 10px' }}>
           <span style={statusBadge(e.status)}>{e.status}</span>
-          <code style={{ fontSize: 11, color: '#8a92a6', marginLeft: 8 }}>{e.id}</code>
-          <span style={{ fontSize: 12, color: '#666', marginLeft: 8 }}>{e.kind} → {e.target} · w={e.weight}</span>
-          <div style={{ fontSize: 12, color: '#444', marginTop: 4 }}>{e.sig}</div>
+          <code style={{ fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', marginLeft: 8 }}>{e.id}</code>
+          <span style={{ fontSize: 12, color: 'var(--dsw-alias-label-secondary)', marginLeft: 8 }}>{e.kind} → {e.target} · w={e.weight}</span>
+          <div style={{ fontSize: 12, color: 'var(--dsw-alias-label-primary)', marginTop: 4 }}>{e.sig}</div>
         </div>
       ))}
     </div>

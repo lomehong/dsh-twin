@@ -1020,6 +1020,8 @@ function registerLearningApi(web: WebServerLike, ctx: { logger?: { info?: (...a:
           by?: string
           threshold?: number
         }
+        const evs = learningLoadEvents()
+        const cs = learningLoadCandidates()
         const result = learningEnqueue({
           kind: (body.kind ?? '纠正') as SignalKind,
           target: (body.target ?? '样例卡') as TargetKind,
@@ -1028,10 +1030,10 @@ function registerLearningApi(web: WebServerLike, ctx: { logger?: { info?: (...a:
           ...(body.explicitAttribution === true ? { explicitAttribution: true } : {}),
           by: String(body.by ?? '主人'),
           ...(body.threshold !== undefined ? { threshold: Number(body.threshold) } : {}),
-        }, learningLoadEvents(), learningLoadCandidates())
-        // 落盘
-        saveEvents(learningLoadEvents())
-        if (result.candidate !== undefined) saveCandidates(learningLoadCandidates())
+        }, evs, cs)
+        // 落盘（保存的是被 enqueue 修改的同一 store 引用）
+        saveEvents(evs)
+        if (result.candidate !== undefined) saveCandidates(cs)
         respondJson(res, 200, {
           ok: true,
           event: result.event,
@@ -1051,8 +1053,9 @@ function registerLearningApi(web: WebServerLike, ctx: { logger?: { info?: (...a:
       if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
       try {
         const body = (await readJsonBody(req)) as { candidateId?: string; by?: string }
-        const c = learningConfirm(String(body.candidateId ?? ''), String(body.by ?? '主人'), learningLoadCandidates())
-        saveCandidates(learningLoadCandidates())
+        const cs = learningLoadCandidates()
+        const c = learningConfirm(String(body.candidateId ?? ''), String(body.by ?? '主人'), cs)
+        saveCandidates(cs)
         if (c === undefined) { respondJson(res, 404, { ok: false, error: '候选不存在' }); return }
         respondJson(res, 200, { ok: true, candidate: c })
       } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
@@ -1066,9 +1069,11 @@ function registerLearningApi(web: WebServerLike, ctx: { logger?: { info?: (...a:
       if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
       try {
         const body = (await readJsonBody(req)) as { candidateId?: string; by?: string }
-        const c = learningReject(String(body.candidateId ?? ''), learningLoadCandidates(), learningLoadEvents())
-        saveCandidates(learningLoadCandidates())
-        saveEvents(learningLoadEvents())
+        const cs = learningLoadCandidates()
+        const evs = learningLoadEvents()
+        const c = learningReject(String(body.candidateId ?? ''), cs, evs)
+        saveCandidates(cs)
+        saveEvents(evs)
         if (c === undefined) { respondJson(res, 404, { ok: false, error: '候选不存在' }); return }
         respondJson(res, 200, { ok: true, candidate: c })
       } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
@@ -1082,9 +1087,11 @@ function registerLearningApi(web: WebServerLike, ctx: { logger?: { info?: (...a:
       if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
       try {
         const body = (await readJsonBody(req)) as { candidateId?: string; regressionReportId?: string }
-        const c = learningApply(String(body.candidateId ?? ''), String(body.regressionReportId ?? ''), learningLoadCandidates(), learningLoadEvents())
-        saveCandidates(learningLoadCandidates())
-        saveEvents(learningLoadEvents())
+        const cs = learningLoadCandidates()
+        const evs = learningLoadEvents()
+        const c = learningApply(String(body.candidateId ?? ''), String(body.regressionReportId ?? ''), cs, evs)
+        saveCandidates(cs)
+        saveEvents(evs)
         if (c === undefined) { respondJson(res, 404, { ok: false, error: '候选不存在' }); return }
         if (c.confirmedAt === undefined) { respondJson(res, 400, { ok: false, error: '候选未确认（需要先 confirm）', candidate: c }); return }
         respondJson(res, 200, { ok: true, candidate: c })

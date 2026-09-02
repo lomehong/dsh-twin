@@ -83,8 +83,8 @@ function FailoverCard() {
         // （historical s.hint + marginTop）。此前引用 s.hint 是 ReferenceError，监控 Tab 必崩。
         {
           fontSize: 12,
-          color: '#8a8f9c',
-          background: '#f6f7f9',
+          color: 'var(--dsw-alias-label-tertiary)',
+          background: 'var(--dsw-alias-bg-layer-1)',
           border: '1px solid #eee',
           borderRadius: 6,
           padding: '8px 10px',
@@ -300,29 +300,29 @@ function TwinSettingsPage() {
   const s = {
     wrap: { padding: '20px', maxWidth: '720px' },
     h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
-    sub: { fontSize: '13px', color: '#888', margin: '0 0 16px 0' },
+    sub: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary)', margin: '0 0 16px 0' },
     section: { marginBottom: '18px' },
-    secTitle: { fontSize: '14px', fontWeight: 700, margin: '0 0 8px 0', color: '#444' },
-    label: { display: 'block', fontSize: '12px', color: '#666', margin: '8px 0 4px 0' },
+    secTitle: { fontSize: '14px', fontWeight: 700, margin: '0 0 8px 0', color: 'var(--dsw-alias-label-primary)' },
+    label: { display: 'block', fontSize: '12px', color: 'var(--dsw-alias-label-secondary)', margin: '8px 0 4px 0' },
     input: { width: '100%', boxSizing: 'border-box', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' },
     textarea: { width: '100%', boxSizing: 'border-box', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', minHeight: '54px', resize: 'vertical' },
     chipRow: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' },
-    chip: { padding: '5px 12px', border: '1px solid #ddd', borderRadius: '16px', fontSize: '13px', cursor: 'pointer', background: '#fff' },
-    chipOn: { padding: '5px 12px', border: '1px solid #4a6cf7', borderRadius: '16px', fontSize: '13px', cursor: 'pointer', background: '#eef1ff', color: '#4a6cf7', fontWeight: 600 },
+    chip: { padding: '5px 12px', border: '1px solid #ddd', borderRadius: '16px', fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-2)' },
+    chipOn: { padding: '5px 12px', border: '1px solid #4a6cf7', borderRadius: '16px', fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-interactive-bg-active)', color: 'var(--dsw-alias-state-business-primary)', fontWeight: 600 },
     templateGrid: { display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '12px' },
-    templateCard: { width: '160px', padding: '12px 12px 10px', border: '1px solid #e5e7eb', borderRadius: '10px', textAlign: 'center' as const, cursor: 'pointer', background: '#fff', transition: 'all 0.15s' },
-    templateCardOn: { borderColor: '#4a6cf7', background: '#eef1ff', boxShadow: '0 0 0 2px rgba(74,108,247,0.15)' },
-    templateName: { fontSize: '13px', fontWeight: 600, color: '#333', marginBottom: '4px' },
-    templateDesc: { fontSize: '11px', color: '#8a8f9c', lineHeight: 1.4, minHeight: '28px' },
-    templateCheck: { fontSize: '12px', color: '#4a6cf7', fontWeight: 600, marginTop: '6px' },
-    btn: { padding: '8px 18px', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: '#4a6cf7', color: '#fff' },
-    ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: '#fff', color: '#444' },
+    templateCard: { width: '160px', padding: '12px 12px 10px', border: '1px solid #e5e7eb', borderRadius: '10px', textAlign: 'center' as const, cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-2)', transition: 'all 0.15s' },
+    templateCardOn: { borderColor: 'var(--dsw-alias-state-business-primary)', background: 'var(--dsw-alias-interactive-bg-active)', boxShadow: '0 0 0 2px rgba(74,108,247,0.15)' },
+    templateName: { fontSize: '13px', fontWeight: 600, color: 'var(--dsw-alias-label-primary)', marginBottom: '4px' },
+    templateDesc: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)', lineHeight: 1.4, minHeight: '28px' },
+    templateCheck: { fontSize: '12px', color: 'var(--dsw-alias-state-business-primary)', fontWeight: 600, marginTop: '6px' },
+    btn: { padding: '8px 18px', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-state-business-primary)', color: '#fff' },
+    ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)' },
     row: { display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' },
     tabBar: { display: 'flex', gap: '4px', borderBottom: '1px solid #e5e7eb', marginBottom: '14px' },
-    tab: { padding: '8px 14px', fontSize: '13px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#666', borderBottom: '2px solid transparent' },
-    tabOn: { padding: '8px 14px', fontSize: '13px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#4a6cf7', fontWeight: 600, borderBottom: '2px solid #4a6cf7' },
-    hint: { fontSize: '12px', color: '#8a8f9c', background: '#f6f7f9', border: '1px solid #eee', borderRadius: '6px', padding: '8px 10px', marginTop: '4px' },
-    status: { fontSize: '13px', marginTop: '10px', color: '#4a6cf7' },
+    tab: { padding: '8px 14px', fontSize: '13px', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dsw-alias-label-secondary)', borderBottom: '2px solid transparent' },
+    tabOn: { padding: '8px 14px', fontSize: '13px', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dsw-alias-state-business-primary)', fontWeight: 600, borderBottom: '2px solid #4a6cf7' },
+    hint: { fontSize: '12px', color: 'var(--dsw-alias-label-tertiary)', background: 'var(--dsw-alias-bg-layer-1)', border: '1px solid #eee', borderRadius: '6px', padding: '8px 10px', marginTop: '4px' },
+    status: { fontSize: '13px', marginTop: '10px', color: 'var(--dsw-alias-state-business-primary)' },
   } as Record<string, React.CSSProperties>
 
   const setI = (k: keyof Config['identity'], v: string) => setCfg((prev) => ({ ...prev, identity: { ...prev.identity, [k]: v } }))
@@ -449,7 +449,7 @@ function TwinSettingsPage() {
         把「数字分身」设为默认 agent 预设
       </label>
       {cfg.becomeDefaultPreset === true && (
-        <div style={{ ...s.hint, color: '#c47f17' }}>
+        <div style={{ ...s.hint, color: 'var(--dsw-alias-state-warn-label)' }}>
           ⚠ 勾选后所有新会话（含你自己的日常工作会话）都将使用 conversation-first
           分身预设（无 shell / 文件系统直操工具）。若你主要在网页端做开发工作，
           建议不勾选，改为在「手机连接 → im-channel 设置」里配置 agentPreset: digital-twin，
