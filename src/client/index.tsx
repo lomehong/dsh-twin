@@ -26,6 +26,9 @@ export function apply(ctx: ClientContext): void {
       TwinSettingsPage,
     ),
   )
+  // v2 重组只合并四个 conversation.view（今日待办/学习/关系/影子）；「四张卡」
+  // 是 settings.section（设置 Tab），不在合并范围——误删会导致卡片管理无入口。
+  applyCards(ctx)
   // v2/v3：数字分身主面板（单一 conversation.view slot，内含今日待办/学习队列/关系档案/影子测试）
   applyTwinHub(ctx)
 }
