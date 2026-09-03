@@ -160,6 +160,18 @@ describe('materializePreset 版本戳', () => {
     expect(again.materialized).toBe(false)
   })
 
+  it('link: 安装下 resolve 探测失败时，按 DSH_HOME 安装布局兜底追加工具行', async () => {
+    // 复现生产 bug：dsh-twin 以 symlink 安装时 import.meta.url 指向源码仓库，
+    // resolve('@dsh-extra/dsh-memory/package.json') 失败，但安装位置明明有包。
+    const { materializePreset } = await import('../src/index.ts')
+    mkdirSync(join(home, 'profiles', 'web', 'node_modules', '@dsh-extra', 'dsh-memory'), { recursive: true })
+    writeFileSync(join(home, 'profiles', 'web', 'node_modules', '@dsh-extra', 'dsh-memory', 'package.json'), '{"name":"@dsh-extra/dsh-memory"}')
+    // 不注入 deps：走真实探测路径（resolve 失败 → installedInHome 命中）
+    const r = materializePreset()
+    const yml = readFileSync(join(r.dir, 'agent.cordis.yml'), 'utf8')
+    expect(yml).toContain('@dsh-extra/dsh-memory/tools')
+  })
+
   it('版本号变化时覆盖更新并保留 .bak；旧版本里的可选行在依赖缺席时被清除', async () => {
     const { materializePreset } = await import('../src/index.ts')
     // 先物化出带 memory 行的 v 当前版

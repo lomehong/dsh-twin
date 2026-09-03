@@ -12,7 +12,7 @@
  * im-channel 只是通道，不承担分身身份。
  * 客户端通过 `GET/POST /dsh-twin/config` 读写。
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, copyFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync, copyFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -420,35 +420,53 @@ export function renderPersona(cfg: Partial<TwinConfig>, { guestView = false }: {
 // v6：决策记忆治理升级——本机部署 dsh-memory 后重物化，自动追加共享记忆工具行
 //（配合 dsh-memory v2：陈述类型/来源归因/授权/替代链，见 dsh-memory/docs/决策记忆治理-设计.md）。
 // v7：新增电脑操作能力——检测到 @dsh-extra/dsh-computer 已安装后自动追加 tool-computer 行。
-const PRESET_VERSION = '7'
+// v7→v8：可选依赖探测修复——link: 安装下 import.meta.url 指向源码仓库，resolve
+// 到不了安装位置平级包，导致已装 dsh-memory 却不追加 tool-memory 行。探测加安装布局兜底。
+const PRESET_VERSION = '8'
 
-/** dsh-yuyi 是否已安装（同 node_modules 内可解析）。装了才给预设追加御驿工具行。 */
+/**
+ * link: 安装（开发态）下 import.meta.url 指向源码仓库真实路径，node resolve
+ * 到不了安装位置（$DSH_HOME 下各 profile 的 node_modules）的平级包——pnpm 只在
+ * 安装位置放 symlink。resolve 失败不等于未安装，再按安装布局做存在性探测。
+ */
+function installedInHome(pkg: string): boolean {
+  const home = dshHome()
+  const candidates = [join(home, 'node_modules', pkg, 'package.json')]
+  try {
+    for (const p of readdirSync(join(home, 'profiles'))) {
+      candidates.push(join(home, 'profiles', p, 'node_modules', pkg, 'package.json'))
+    }
+  } catch { /* 无 profiles 目录：跳过 */ }
+  return candidates.some(c => existsSync(c))
+}
+
+/** dsh-yuyi 是否已安装。装了才给预设追加御驿工具行。 */
 function yuyiAvailable(): boolean {
   try {
     createRequire(import.meta.url).resolve('dsh-yuyi/package.json')
     return true
   } catch {
-    return false
+    return installedInHome('dsh-yuyi')
   }
 }
 
-/** dsh-memory 是否已安装（同 node_modules 内可解析）。决定是否追加共享记忆工具行。 */
+/** dsh-memory 是否已安装。决定是否追加共享记忆工具行。 */
 function memoryAvailable(): boolean {
   try {
     createRequire(import.meta.url).resolve('@dsh-extra/dsh-memory/package.json')
     return true
   } catch {
-    return false
+    return installedInHome('@dsh-extra/dsh-memory')
   }
 }
 
-/** @dsh-extra/dsh-computer 是否已安装（同 node_modules 内可解析）。决定是否追加电脑操作工具行。 */
+/** @dsh-extra/dsh-computer 是否已安装。决定是否追加电脑操作工具行。 */
 function computerAvailable(): boolean {
   try {
     createRequire(import.meta.url).resolve('@dsh-extra/dsh-computer/package.json')
     return true
   } catch {
-    return false
+    return installedInHome('@dsh-extra/dsh-computer')
   }
 }
 
