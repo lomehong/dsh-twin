@@ -58,7 +58,9 @@ const s: Record<string, React.CSSProperties> = {
 export function applyTwinHub(ctx: ClientContext): void {
   ctx.slots.inject('conversation.view', () =>
     ctx.slots.register(
-      { name: 'conversation.view', id: 'twin-hub', order: 21, label: () => '数字分身' },
+      // order 19：紧跟宿主对话/轨迹，排在记忆(20)/御驿(20)之前——
+      // 运营中心是主人高频入口，不应沉底
+      { name: 'conversation.view', id: 'twin-hub', order: 19, label: () => '数字分身' },
       TwinHubPage,
     ),
   )
