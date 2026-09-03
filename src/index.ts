@@ -1087,7 +1087,11 @@ function registerLearningApi(web: WebServerLike, ctx: { logger?: { info?: (...a:
     handler: async (req, res) => {
       if (req.method !== 'POST' || !sameOrigin(req)) { respondJson(res, req.method === 'POST' ? 403 : 405, { ok: false, error: 'denied' }); return }
       try {
-        const body = (await readJsonBody(req)) as { candidateId?: string; regressionReportId?: string }
+        const body = (await readJsonBody(req)) as {
+          candidateId?: string
+          regressionReportId?: string
+          exemplar?: { situation?: unknown; say?: unknown; avoidSay?: unknown }
+        }
         const cs = learningLoadCandidates()
         const evs = learningLoadEvents()
         const c = learningApply(String(body.candidateId ?? ''), String(body.regressionReportId ?? ''), cs, evs)
@@ -1095,7 +1099,27 @@ function registerLearningApi(web: WebServerLike, ctx: { logger?: { info?: (...a:
         saveEvents(evs)
         if (c === undefined) { respondJson(res, 404, { ok: false, error: '候选不存在' }); return }
         if (c.confirmedAt === undefined) { respondJson(res, 400, { ok: false, error: '候选未确认（需要先 confirm）', candidate: c }); return }
-        respondJson(res, 200, { ok: true, candidate: c })
+        let merged = false
+        if (c.status === '已入卡' && c.kind === '样例卡') {
+          const p = c.payload as { situation?: string; say?: string; avoidSay?: string; source?: string }
+          const situation = String(body.exemplar?.situation ?? p.situation ?? '').slice(0, 300)
+          const say = String(body.exemplar?.say ?? p.say ?? '').slice(0, 600)
+          const avoidSay = String(body.exemplar?.avoidSay ?? p.avoidSay ?? '').slice(0, 600)
+          if (situation !== '' && (say !== '' || avoidSay !== '')) {
+            const st = loadCardsState()
+            const items = [...st.file.current.exemplars.items, {
+              id: `ex-${c.id.slice(-8)}`,
+              situation,
+              say,
+              avoidSay,
+              source: (p.source === '纠正' ? '纠正' : '语料') as '纠正' | '语料',
+              confirmedAt: c.appliedAt,
+            }]
+            saveCards({ cards: { ...st.file.current, exemplars: { items } }, confirm: true, regressionPassed: true, regressionReportId: String(body.regressionReportId ?? '') })
+            merged = true
+          }
+        }
+        respondJson(res, 200, { ok: true, candidate: c, merged })
       } catch (e) { respondJson(res, 400, { ok: false, error: e instanceof Error ? e.message : String(e) }) }
     },
   }))
