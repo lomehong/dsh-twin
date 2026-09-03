@@ -57,7 +57,7 @@ const s: Record<string, React.CSSProperties> = {
 
 export function applyCards(ctx: ClientContext): void {
   ctx.slots.inject('settings.section', () =>
-    ctx.slots.register({ name: 'settings.section', id: 'twin-cards', order: 26, label: () => '四张卡（v0.3）' }, CardsPage),
+    ctx.slots.register({ name: 'settings.section', id: 'twin-cards', order: 26, label: () => '四张卡' }, CardsPage),
   )
 }
 
