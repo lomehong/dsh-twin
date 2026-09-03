@@ -72,7 +72,9 @@ export interface CardsState {
     history: CardsRevision[];
 }
 export declare function loadCardsState(): CardsState;
-/** 当前应渲染的卡：生效卡优先；无生效卡返回 null（调用方回落 legacy 渲染） */
+/** 当前应渲染的卡：生效且非空才返回；无生效卡或空生效卡返回 null（调用方回落 legacy 渲染）。
+ *  空生效卡必须回落：status='生效' 只是保存时的双条件标签，内容全空的卡（如迁移前的
+ *  误保存）若也短路渲染，会把主人在「分身设置」配置的人格整个顶掉。 */
 export declare function effectiveCards(): TwinCards | null;
 export interface SaveCardsResult {
     file: CardsFile;
