@@ -86,3 +86,20 @@
 - 正确做法：可选依赖的工具行由宿主端在**物化时**探测安装状态再逐行追加
   （`materializePreset` 的 optionalRows），装了才有行；同时给预设本体加
   `PRESET_VERSION` 递增，让存量用户拿到修正后的组合。
+
+## 13. link: 安装下 `createRequire(import.meta.url).resolve()` 探测同伴插件必然失败
+- 教训：pnpm `link:` 安装时，`import.meta.url` 经 symlink 解析到**源码仓库真实
+  路径**，node resolve 从那里向上找 `node_modules`——永远到不了安装位置
+  （`$DSH_HOME/profiles/<名>/node_modules`）里平级摆放的同伴包。于是
+  「resolve 失败 = 未安装」的判断在开发机上恒为 false：已装 dsh-memory 却
+  不追加 tool-memory 行，分身对话退化成用文件工具模拟记忆（真实事故，
+  2026-09 端到端功能测试才暴露）。
+- 正确做法：resolve 失败后再按**安装布局**做存在性探测兜底
+  （`installedInHome()`：`$DSH_HOME/node_modules/<pkg>` 与
+  `$DSH_HOME/profiles/*/node_modules/<pkg>` 任一存在即视为已安装）；
+  探测逻辑修复要伴随 `PRESET_VERSION` 递增，否则存量 stamp 相同不会重物化。
+- 附带坑：块注释里写 `profiles/*/node_modules` 会被 `*/` 提前终止注释，
+  esbuild 报「Expected \";\" but found \"）\"」类语法错误；注释里避免 `*/` 字面量。
+- 测试面：会话内记忆条目**不会自动注入上下文**，靠 memory_read 主动检索；
+  对分身说「不用查，凭记忆回答」这类措辞会抑制工具调用——验收记忆功能时
+  直接问事实，或明确要求「到记忆库里查」。
