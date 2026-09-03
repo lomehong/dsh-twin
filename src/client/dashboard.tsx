@@ -9,7 +9,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 
-export const inject = ['slots']
 
 interface DashboardData {
   candidates: Array<{ id: string; kind: string; payload: Record<string, unknown>; createdAt: string }>
@@ -22,14 +21,6 @@ interface DashboardData {
 
 const EMPTY: DashboardData = { candidates: [], openLoops: [], pendingShadow: [], ledger: { pendingApprovals: 0, blocked: 0, total: 0 }, regressions: [], reaches: [] }
 
-export function applyDashboard(ctx: ClientContext): void {
-  ctx.slots.inject('conversation.view', () =>
-    ctx.slots.register(
-      { name: 'conversation.view', id: 'twin-todo', order: 21, label: () => '今日待办' },
-      DashboardPage,
-    ),
-  )
-}
 
 async function api<T>(path: string): Promise<T> {
   const r = await fetch(path)

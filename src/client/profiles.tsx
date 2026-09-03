@@ -5,7 +5,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 
-export const inject = ['slots']
 
 interface Profile {
   entity: { id: string; role: string; displayName?: string; bindings: Array<{ channel: string; userId: string }> }
@@ -17,14 +16,6 @@ interface Profile {
 const ROLE_LABEL: Record<string, string> = { master: '主人', colleague: '同事', customer: '客户', stranger: '生人', blocked: '黑名单' }
 const ROLE_COLOR: Record<string, string> = { master: 'var(--dsw-alias-state-success-primary)', colleague: '#3f51c1', customer: 'var(--dsw-alias-state-warn-label)', stranger: 'var(--dsw-alias-label-tertiary)', blocked: 'var(--dsw-alias-state-error-primary)' }
 
-export function applyProfiles(ctx: ClientContext): void {
-  ctx.slots.inject('conversation.view', () =>
-    ctx.slots.register(
-      { name: 'conversation.view', id: 'twin-profiles', order: 23, label: () => '关系档案' },
-      ProfilesPage,
-    ),
-  )
-}
 
 const s: Record<string, React.CSSProperties> = {
   wrap: { padding: '20px', maxWidth: '760px' },

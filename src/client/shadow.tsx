@@ -5,7 +5,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 
-export const inject = ['slots']
 
 interface Pair {
   id: string
@@ -21,14 +20,6 @@ interface Stats {
   breakdown: { 主人: number; 分身: number; 弃权: number; 未判定: number }
 }
 
-export function applyShadow(ctx: ClientContext): void {
-  ctx.slots.inject('conversation.view', () =>
-    ctx.slots.register(
-      { name: 'conversation.view', id: 'twin-shadow', order: 24, label: () => '影子测试' },
-      ShadowPage,
-    ),
-  )
-}
 
 const s: Record<string, React.CSSProperties> = {
   wrap: { padding: '20px', maxWidth: '760px' },

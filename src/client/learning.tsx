@@ -5,7 +5,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 
-export const inject = ['slots']
 
 interface Signal { kind: '纠正' | '否决' | '事实更正' | '影子差异'; label: string }
 const SIGNAL_KINDS: Signal[] = [
@@ -56,14 +55,6 @@ async function api(path: string, method: 'GET' | 'POST', body?: unknown): Promis
   return d
 }
 
-export function applyLearning(ctx: ClientContext): void {
-  ctx.slots.inject('conversation.view', () =>
-    ctx.slots.register(
-      { name: 'conversation.view', id: 'twin-learning', order: 22, label: () => '学习队列' },
-      LearningPage,
-    ),
-  )
-}
 
 const s: Record<string, React.CSSProperties> = {
   wrap: { padding: '20px', maxWidth: '720px' },
@@ -96,7 +87,7 @@ function statusBadge(st: string): React.CSSProperties {
   return { ...s.badge, background: c.bg, color: c.fg, border: `1px solid ${c.b}` }
 }
 
-function LearningPage() {
+export function LearningPage() {
   const [data, setData] = useState<CombinedResp>({ ok: true, events: [], candidates: [] })
   const [kind, setKind] = useState<Signal['kind']>('纠正')
   const [target, setTarget] = useState<'样例卡' | '策略卡' | '记忆'>('样例卡')

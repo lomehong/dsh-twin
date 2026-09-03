@@ -7,10 +7,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { applyCards } from './cards.tsx'
-import { applyLearning } from './learning.tsx'
-import { applyProfiles } from './profiles.tsx'
-import { applyShadow } from './shadow.tsx'
-import { applyDashboard } from './dashboard.tsx'
+import { applyTwinHub } from './twin-hub.tsx'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
@@ -29,13 +26,8 @@ export function apply(ctx: ClientContext): void {
       TwinSettingsPage,
     ),
   )
-  // v0.3：四张卡向导（独立 slot，见 ./cards.tsx）
-  applyCards(ctx)
-  // v2 学习队列 / 关系档案 / 影子测试（独立 slot）
-  applyLearning(ctx)
-  applyProfiles(ctx)
-  applyShadow(ctx)
-  applyDashboard(ctx)
+  // v2/v3：数字分身主面板（单一 conversation.view slot，内含今日待办/学习队列/关系档案/影子测试）
+  applyTwinHub(ctx)
 }
 
 type Config = {
