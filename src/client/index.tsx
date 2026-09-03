@@ -4,9 +4,9 @@
  * 注册为顶级设置 Tab（settings.section，id=twin）：模板 / 人格 / 知识，并支持导入导出人格数据。
  * 通过 /dsh-twin/config 读写；人格由宿主端注入 system prompt，知识写入 dsh-memory。
  * 插件=纯框架，人格=数据（twin-config.json），可导入导出随身携带。
+ * 本 Tab 只承担初始配置（向导性质）；日常运营（修订确认/人格卡/学习队列）在主对话窗口「数字分身」Tab。
  */
 import { useState, useEffect, useCallback } from 'react'
-import { applyCards } from './cards.tsx'
 import { applyTwinHub } from './twin-hub.tsx'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -26,10 +26,7 @@ export function apply(ctx: ClientContext): void {
       TwinSettingsPage,
     ),
   )
-  // v2 重组只合并四个 conversation.view（今日待办/学习/关系/影子）；「四张卡」
-  // 是 settings.section（设置 Tab），不在合并范围——误删会导致卡片管理无入口。
-  applyCards(ctx)
-  // v2/v3：数字分身主面板（单一 conversation.view slot，内含今日待办/学习队列/关系档案/影子测试）
+  // v2/v3：数字分身主面板（单一 conversation.view slot，内含今日待办/学习队列/关系档案/影子测试/人格卡）
   applyTwinHub(ctx)
 }
 
@@ -328,7 +325,7 @@ function TwinSettingsPage() {
   return (
     <div style={s.wrap}>
       <h1 style={s.h}>数字分身设置</h1>
-      <p style={s.sub}>配置你的数字分身：模板 / 人格 / 知识。保存后立即生效（人格注入提示词、知识写入共享记忆）。插件是纯框架，人格是数据，可导入导出随身携带。</p>
+      <p style={s.sub}>配置你的数字分身：模板 / 人格 / 知识。保存后立即生效（人格注入提示词、知识写入共享记忆）。插件是纯框架，人格是数据，可导入导出随身携带。日常管理（候选修订确认、人格卡编辑、学习队列）在主对话窗口的「数字分身」Tab。</p>
 
       <div style={s.tabBar}>
         {([['persona', '人格'], ['knowledge', '知识'], ['monitor', '监控'], ['history', '历史']] as const).map(([id, label]) => (

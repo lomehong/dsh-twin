@@ -1,7 +1,9 @@
 /**
- * 四张卡向导（客户端，实施计划 T7）：注册独立设置 slot「四张卡」（id=twin-cards）。
+ * 人格卡面板（原「四张卡」设置 Tab，v0.3 结构化人格）。
  *
- * 与既有「分身设置」Tab（twin-config legacy 编辑器）解耦：
+ * v2 UI 重组后不再注册 settings.section：卡片是日常运营对象（修订确认、
+ * 修订史、双视图预览），挂在主对话窗口「数字分身」Tab 的子标签下，
+ * 与今日待办/学习队列同级。数据链路不变：
  * - 加载 GET /dsh-twin/cards（当前卡 + 状态 + 修订史 + 投影摘要）
  * - 结构化编辑四张卡（身份字段+可见性 / 策略规则 / 样例对照 / 状态条目）
  * - 保存链路：归一化 → 候选修订 →（确认 + 回归通过）才生效——页面上
@@ -10,9 +12,6 @@
  * - 预览：GET /dsh-twin/cards/preview 双视图对照
  */
 import { useState, useEffect, useCallback } from 'react'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-
-export const inject = ['slots']
 
 interface IdentityField { key: string; value: string; visibility: string }
 interface PolicyRule { id: string; when: string; act: string; escalate?: string; enabled: boolean }
@@ -55,13 +54,7 @@ const s: Record<string, React.CSSProperties> = {
   pre: { background: 'var(--dsw-alias-bg-layer-1)', border: '1px solid #eee', borderRadius: 6, padding: 10, fontSize: 12, whiteSpace: 'pre-wrap' as const, maxHeight: 260, overflow: 'auto' },
 }
 
-export function applyCards(ctx: ClientContext): void {
-  ctx.slots.inject('settings.section', () =>
-    ctx.slots.register({ name: 'settings.section', id: 'twin-cards', order: 26, label: () => '四张卡' }, CardsPage),
-  )
-}
-
-function CardsPage() {
+export function CardsPage() {
   const [cards, setCards] = useState<Cards>(EMPTY)
   const [meta, setMeta] = useState<{ revisionNo: number; status: string; hasEffective: boolean }>({ revisionNo: 0, status: '候选', hasEffective: false })
   const [history, setHistory] = useState<Array<{ revisionNo: number; ts: string; confirmed: boolean; regressionPassed: boolean }>>([])
@@ -126,7 +119,7 @@ function CardsPage() {
   return (
     <div>
       <p style={s.hint}>
-        四张卡是分身人格的结构化数据：身份卡（公开/私密分级——私密字段访客视图结构性缺失）、策略卡（触发→动作→升级，逐条可测试）、
+        人格卡是分身人格的结构化数据（身份/策略/样例/状态四张）：身份卡（公开/私密分级——私密字段访客视图结构性缺失）、策略卡（触发→动作→升级，逐条可测试）、
         样例卡（这么说/不这么说）、状态卡（随时间衰减）。生效 = <b>主人确认 + 回归通过</b> 双条件，缺一保存为候选修订。
       </p>
       <div style={{ ...s.status, background: meta.hasEffective ? 'var(--dsw-alias-state-success-tertiary)' : 'var(--dsw-alias-state-warn-tertiary)', color: meta.hasEffective ? 'var(--dsw-alias-state-success-primary)' : 'var(--dsw-alias-state-warn-label)' }}>
@@ -226,8 +219,8 @@ function CardsPage() {
         <label><input type="checkbox" checked={regressionPassed} onChange={(e) => setRegressionPassed(e.target.checked)} /> 回归通过（由 dsh-regression 报告回填）</label>
       </div>
       <div style={s.row}>
-        <button style={s.btn} onClick={() => void save(false)}>保存四张卡</button>
-        <button style={s.btn2} onClick={() => { if (window.confirm('从 legacy twin-config 迁移到四张卡？当前编辑内容将被覆盖。')) void save(true) }}>从旧配置迁移</button>
+        <button style={s.btn} onClick={() => void save(false)}>保存人格卡</button>
+        <button style={s.btn2} onClick={() => { if (window.confirm('从 legacy twin-config 迁移到人格卡？当前编辑内容将被覆盖。')) void save(true) }}>从旧配置迁移</button>
         <button style={s.btn2} onClick={() => void doPreview()}>预览双视图投影</button>
         <button style={s.btn2} onClick={() => void load()}>刷新</button>
       </div>
