@@ -358,3 +358,28 @@ describe('renderPersona 双视图', () => {
     expect(guest).toContain('投诉转主人')
   })
 })
+
+describe('effectiveCards（空生效卡回落 legacy）', () => {
+  it('生效但内容全空的卡返回 null——不得短路「分身设置」的人格渲染', async () => {
+    const { saveCards, effectiveCards } = await import('../src/cards.ts')
+    saveCards({
+      cards: { identity: { fields: [] }, policy: { rules: [] }, exemplars: { items: [] }, state: { items: [] } },
+      confirm: true, regressionPassed: true, regressionReportId: 'REP-EMPTY',
+    })
+    expect(effectiveCards()).toBeNull()
+  })
+
+  it('生效且非空的卡正常返回', async () => {
+    const { saveCards, effectiveCards } = await import('../src/cards.ts')
+    saveCards({
+      cards: {
+        identity: { fields: [{ key: 'name', value: '小子', visibility: '公开' }] },
+        policy: { rules: [] }, exemplars: { items: [] }, state: { items: [] },
+      },
+      confirm: true, regressionPassed: true, regressionReportId: 'REP-FULL',
+    })
+    const c = effectiveCards()
+    expect(c).not.toBeNull()
+    expect(c?.identity.fields[0]?.value).toBe('小子')
+  })
+})
