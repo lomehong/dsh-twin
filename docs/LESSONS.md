@@ -103,3 +103,17 @@
 - 测试面：会话内记忆条目**不会自动注入上下文**，靠 memory_read 主动检索；
   对分身说「不用查，凭记忆回答」这类措辞会抑制工具调用——验收记忆功能时
   直接问事实，或明确要求「到记忆库里查」。
+
+## 14. dsh 运行中重建 lib 会触发热重载竞态，可能用旧代码重物化预设
+- 教训：`patchReload: live` 下，运行中的 dsh 监听插件包文件变化。`tsc -b`
+  逐文件输出 lib 的过程中，热重载可能在**构建中间态**加载到旧版本号的
+  index.js，随即执行 `materializePreset()`：版本号比对认为「需要重物化」，
+  却用**旧探测逻辑**重写预设——刚修好的 tool-memory 行被抹掉（真实事故，
+  2026-09 重建 lib 后生产 yml 丢工具行，.bak 里才找到好状态）。
+- 正确做法：要么先停 dsh 再构建；要么构建后**删版本戳**
+  （`.agent-presets/digital-twin/.materialized-version`）强制下次启动按新
+  lib 重物化。install-all.bat 现在每次安装后都删戳，天然防护。
+- 附带坑：裸跑插件 lib 的函数（如 materializePreset）时，进程没有
+  DSH_HOME 环境变量会回落 `~/.dsh`——**写错 home**。务必显式
+  `DSH_HOME=<desktop home>` 再跑；install-all.bat 的 DSH_HOME 自动定位
+  （desktop home → ~/.dsh）就是为了这个。
