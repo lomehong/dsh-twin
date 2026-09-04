@@ -336,11 +336,8 @@ function TwinSettingsPage() {
         把「数字分身」设为默认 agent 预设
       </label>
       {cfg.becomeDefaultPreset === true && (
-        <div style={{ ...s.hint, color: 'var(--dsw-alias-state-warn-label)' }}>
-          ⚠ 勾选后所有新会话（含你自己的日常工作会话）都将使用 conversation-first
-          分身预设（无 shell / 文件系统直操工具）。若你主要在网页端做开发工作，
-          建议不勾选，改为在「手机连接 → im-channel 设置」里配置 agentPreset: digital-twin，
-          只让企微会话走分身人格。
+        <div style={{ ...s.hint, color: 'var(--dsw-alias-state-success-primary)' }}>
+          ✓ 数字分身预设已包含全部工具（shell / 文件系统 / 电脑操作 / 联网等）。勾选后所有新会话都以你的分身身份工作：人格、记忆、工具完全一致。访客会话仍按访客权限白名单受限，不受影响。
         </div>
       )}
 
