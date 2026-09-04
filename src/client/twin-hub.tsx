@@ -3,6 +3,10 @@
  *
  * 内部集成六个子视图：今日待办 · 学习队列 · 关系档案 · 影子测试 · 监控 · 人格卡。
  * 通过内部 Tab 栏切换，不增加会话 Tab 栏宽度。
+ *
+ * 「任务看板」是 dsh-task-board 独立插件自注册的同级 conversation.view（order 22），
+ * 不嵌入本 Tab——保持插件职责与挂载独立（决策五：任务中心化，但看板与分身是
+ * 平级组织维度，不是父子）。
  */
 import { useState } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
