@@ -12,8 +12,9 @@
  * - 预览：GET /dsh-twin/cards/preview 双视图对照
  */
 import { useState, useEffect, useCallback } from 'react'
+import { BUILT_IN_FIELDS, TONE_OPTIONS } from '../built-in-fields.ts'
 
-interface IdentityField { key: string; value: string; visibility: string }
+interface IdentityField { key: string; value: string; visibility: string; builtIn?: boolean }
 interface PolicyRule { id: string; when: string; act: string; escalate?: string; enabled: boolean }
 interface Exemplar { id: string; situation: string; say: string; avoidSay: string; source: string }
 interface StateItem { id: string; content: string; statementType: string; decayAt?: string }
@@ -33,7 +34,7 @@ interface CardsResp {
 }
 
 const EMPTY: Cards = {
-  identity: { fields: [{ key: 'name', value: '', visibility: '公开' }, { key: 'background', value: '', visibility: '私密' }] },
+  identity: { fields: BUILT_IN_FIELDS.map(d => ({ key: d.key, value: '', visibility: d.visibility, builtIn: true })) },
   policy: { rules: [] },
   exemplars: { items: [] },
   state: { items: [] },
@@ -126,23 +127,58 @@ export function CardsPage() {
         当前状态：{meta.hasEffective ? '✓ 生效' : '候选（旧生效卡或 legacy 渲染中）'} · 修订号 {meta.revisionNo}
       </div>
 
-      {/* 身份卡 */}
+      {/* 身份卡：内置字段（固定表单，不可删除）+ 自定义扩展 */}
       <div style={s.sec}>① 身份卡</div>
+      {BUILT_IN_FIELDS.map((def) => {
+        const f = cards.identity.fields.find(x => x.key === def.key)
+        const set = (patch: Partial<IdentityField>) => upd(d => {
+          const t = d.identity.fields.findIndex(x => x.key === def.key)
+          if (t >= 0) d.identity.fields[t] = { ...d.identity.fields[t]!, ...patch, key: def.key, builtIn: true }
+          else d.identity.fields.push({ key: def.key, value: '', visibility: def.visibility, builtIn: true, ...patch })
+        })
+        return (
+          <div key={def.key} style={s.row}>
+            <span style={{ minWidth: 96, textAlign: 'right', fontSize: 12.5, color: 'var(--dsw-alias-label-secondary)' }}>
+              {def.label}{def.visibility === '私密' ? ' 🔒' : ''}
+            </span>
+            {def.control === 'tone' ? (
+              <select style={s.small} value={f?.value ?? ''} onChange={(e) => set({ value: e.target.value })}>
+                <option value="">（未设置）</option>
+                {TONE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            ) : def.control === 'textarea' ? (
+              <textarea style={{ ...s.wide, minHeight: 44 }} value={f?.value ?? ''}
+                onChange={(e) => set({ value: e.target.value })} />
+            ) : (
+              <input style={s.input} value={f?.value ?? ''} onChange={(e) => set({ value: e.target.value })} />
+            )}
+            <select style={s.small} value={f?.visibility ?? def.visibility} onChange={(e) => set({ visibility: e.target.value })}>
+              <option value="公开">公开</option>
+              <option value="私密">私密</option>
+            </select>
+          </div>
+        )
+      })}
+      <div style={s.hint}>以上九项为固定身份字段（不可删除）；🔒 私密字段访客视图结构性缺失。「做事方式 / 边界与转人工」要结构化时，在下方策略卡逐条录入规则，然后清空对应文本。</div>
+      <div style={{ ...s.sec, marginTop: 14 }}>自定义字段（可选）</div>
       {cards.identity.fields.map((f, i) => (
-        <div key={i} style={s.row}>
-          <input style={{ ...s.input, maxWidth: 140 }} value={f.key} placeholder="键（name/role…）"
-            onChange={(e) => upd(d => { d.identity.fields[i]!.key = e.target.value })} />
-          <input style={s.input} value={f.value} placeholder="值"
-            onChange={(e) => upd(d => { d.identity.fields[i]!.value = e.target.value })} />
-          <select style={s.small} value={f.visibility}
-            onChange={(e) => upd(d => { d.identity.fields[i]!.visibility = e.target.value })}>
-            <option value="公开">公开</option>
-            <option value="私密">私密</option>
-          </select>
-          <button style={s.del} onClick={() => upd(d => { d.identity.fields.splice(i, 1) })}>删</button>
-        </div>
+        // 按 key 判断内置（而非 builtIn 标记）：不依赖后端版本是否回传标记
+        BUILT_IN_FIELDS.some(d => d.key === f.key) ? null : (
+          <div key={`c-${i}`} style={s.row}>
+            <input style={{ ...s.input, maxWidth: 140 }} value={f.key} placeholder="键（如：毕业院校）"
+              onChange={(e) => upd(d => { d.identity.fields[i]!.key = e.target.value })} />
+            <input style={s.input} value={f.value} placeholder="值"
+              onChange={(e) => upd(d => { d.identity.fields[i]!.value = e.target.value })} />
+            <select style={s.small} value={f.visibility}
+              onChange={(e) => upd(d => { d.identity.fields[i]!.visibility = e.target.value })}>
+              <option value="公开">公开</option>
+              <option value="私密">私密</option>
+            </select>
+            <button style={s.del} onClick={() => upd(d => { d.identity.fields.splice(i, 1) })}>删</button>
+          </div>
+        )
       ))}
-      <button style={s.btn2} onClick={() => upd(d => { d.identity.fields.push({ key: '', value: '', visibility: '公开' }) })}>+ 身份字段</button>
+      <button style={s.btn2} onClick={() => upd(d => { d.identity.fields.push({ key: '', value: '', visibility: '公开' }) })}>+ 自定义字段</button>
 
       {/* 策略卡 */}
       <div style={s.sec}>② 策略卡（触发 → 动作 → 升级）</div>

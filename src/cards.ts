@@ -20,7 +20,20 @@ export interface IdentityField {
   key: string
   value: string
   visibility: '公开' | '私密'
+  /** 内置字段（原设置窗口人格项）：恒存在、不可删除、键不可改，只有值与可见性可编辑 */
+  builtIn?: boolean
 }
+
+/**
+ * 内置身份字段（原「分身设置」人格 Tab 的九个固设置项）。
+ * 定义在 ./built-in-fields.ts（客户端共用）；此处 re-export 供既有引用。
+ * - 恒存在：normalizeCards 对缺失项自动补空值——「字段不在」在模型层不可能发生；
+ * - 不可删除：保存入口忽略对内置字段的删除，UI 层也不提供删除按钮；
+ * - 可见性默认值与 legacy renderPersona 行为逐一对齐：背景（主人私有事实）私密，
+ *   其余为行为类/公开信息（价值观是分身对任何对话对象的准则，不是隐私）。
+ */
+export { BUILT_IN_FIELDS } from './built-in-fields.ts'
+import { BUILT_IN_FIELDS, BUILT_IN_KEYS } from './built-in-fields.ts'
 
 export interface PolicyRule {
   id: string
@@ -98,6 +111,29 @@ function sanitizeId(input: unknown, prefix: string, index: number): string {
 }
 
 /** 归一化整份卡（幂等；未知键丢弃——向前兼容由版本号管理） */
+/** 内置字段恒存在：缺失补空值；输出固定为「内置按 BUILT_IN_FIELDS 顺序在前、自定义在后」。 */
+function applyBuiltInIdentity(fields: IdentityField[]): IdentityField[] {
+  const byKey = new Map(fields.filter(f => BUILT_IN_KEYS.has(f.key)).map(f => [f.key, f]))
+  const builtIn: IdentityField[] = BUILT_IN_FIELDS.map(def => {
+    const existing = byKey.get(def.key)
+    if (existing !== undefined) return { ...existing, builtIn: true }
+    return { key: def.key, value: '', visibility: def.visibility, builtIn: true }
+  })
+  const custom = fields.filter(f => !BUILT_IN_KEYS.has(f.key))
+  return [...builtIn, ...custom]
+}
+
+/** 卡内容是否实质为空（内置字段全空值、无自定义字段、无任何规则/样例/状态条目）。 */
+export function isEffectivelyEmpty(cards: TwinCards): boolean {
+  const identityFilled = cards.identity.fields.some(f => f.value.trim() !== '')
+  return (
+    !identityFilled &&
+    cards.policy.rules.length === 0 &&
+    cards.exemplars.items.length === 0 &&
+    cards.state.items.length === 0
+  )
+}
+
 export function normalizeCards(input: unknown): TwinCards {
   const out: TwinCards = {
     identity: { fields: [] },
@@ -111,21 +147,25 @@ export function normalizeCards(input: unknown): TwinCards {
   if (src.identity !== null && typeof src.identity === 'object') {
     const fields = (src.identity as { fields?: unknown }).fields
     if (Array.isArray(fields)) {
-      fields.slice(0, 20).forEach((f, i) => {
+      fields.slice(0, 30).forEach((f, i) => {
         if (f === null || typeof f !== 'object') return
         const rec = f as Record<string, unknown>
         const value = (typeof rec.value === 'string' ? stripLeadingHash(normalizePersonaText(rec.value)) : '').slice(0, 2000)
         const rawKey = normalizePersonaLine(rec.key)
         if (rawKey === '' && value === '') return // 空键空值条目丢弃（先于自动 id）
         const key = sanitizeId(rawKey, 'field', i)
+        const builtIn = typeof rec.key === 'string' && BUILT_IN_KEYS.has(rec.key)
         out.identity.fields.push({
           key,
           value,
           visibility: rec.visibility === '私密' ? '私密' : '公开',
+          ...(builtIn ? { builtIn: true } : {}),
         })
       })
     }
   }
+  // 内置字段恒存在：被删/缺失的补空值，并保持「内置固定顺序在前、自定义在后」
+  out.identity.fields = applyBuiltInIdentity(out.identity.fields)
 
   if (src.policy !== null && typeof src.policy === 'object') {
     const rules = (src.policy as { rules?: unknown }).rules
@@ -244,13 +284,8 @@ export function loadCardsState(): CardsState {
 export function effectiveCards(): TwinCards | null {
   const st = loadCardsState()
   if (!st.hasEffective) return null
-  const c = st.file.current
-  const isEmpty =
-    c.identity.fields.length === 0 &&
-    c.policy.rules.length === 0 &&
-    c.exemplars.items.length === 0 &&
-    c.state.items.length === 0
-  return isEmpty ? null : c
+  // 内置字段恒存在后 fields.length 恒 ≥9，「空卡」必须按值语义判定（isEffectivelyEmpty）
+  return isEffectivelyEmpty(st.file.current) ? null : st.file.current
 }
 
 export interface SaveCardsResult {
@@ -360,6 +395,15 @@ export interface MigrationResult {
  * - knowledge.seeds → 状态卡候选条目（source=seed）
  * - 样例卡为空（旧配置没有对照样例）
  */
+/**
+ * legacy twin-config → 人格卡一次性迁移（保真映射）。
+ *
+ * 与旧版差异（v2 合并设计）：九个人格项全部落为**身份卡内置字段**（builtIn），
+ * 不再拆进策略卡——自由文本强拆 when→act→escalate 必然失真；规则化是人格卡页
+ * 里「拆成可测试的规则 ↗」引导下主人的主动动作。知识种子不搬（保存时已写入
+ * dsh-memory 记忆库，本就不属人格卡）。可见性默认值与 legacy renderPersona
+ * 行为逐一对齐：background/workingStyle 私密（主人私有），其余公开（行为类）。
+ */
 export function migrateTwinConfigToCards(cfg: unknown): MigrationResult {
   if (cfg === null || typeof cfg !== 'object') return { ok: false, error: 'twin-config 为空或非对象', mapping: [] }
   const c = cfg as LegacyTwinConfigShape
@@ -371,61 +415,31 @@ export function migrateTwinConfigToCards(cfg: unknown): MigrationResult {
     state: { items: [] },
   }
 
-  const name = normalizePersonaLine(c.identity?.name)
-  const role = normalizePersonaLine(c.identity?.role)
-  const background = normalizePersonaText(c.identity?.background)
-  const tone = normalizePersonaLine(c.persona?.tone)
-  const style = normalizePersonaText(c.persona?.style)
-  const values = normalizePersonaText(c.persona?.values)
-  const rules = normalizePersonaText(c.persona?.rules)
-  const avoid = normalizePersonaText(c.persona?.avoid)
-  const escalation = normalizePersonaText(c.persona?.escalation)
-
-  if (name !== '') {
-    cards.identity.fields.push({ key: 'name', value: name, visibility: '公开' })
-    mapping.push('identity.name → 身份卡 name（公开）')
+  const TONE_LABEL: Record<string, string> = {
+    professional: '专业', friendly: '亲切', concise: '简洁', humorous: '幽默',
   }
-  if (role !== '') {
-    cards.identity.fields.push({ key: 'role', value: role, visibility: '公开' })
-    mapping.push('identity.role → 身份卡 role（公开）')
+  const push = (key: string, raw: unknown, note: string) => {
+    const def = BUILT_IN_FIELDS.find(f => f.key === key)
+    const value = (typeof raw === 'string' ? normalizePersonaText(raw) : '').slice(0, 2000)
+    if (value === '' || def === undefined) return
+    cards.identity.fields.push({ key, value, visibility: def.visibility, builtIn: true })
+    mapping.push(`${note} → 身份卡 ${def.label}（${def.visibility}）`)
   }
-  if (background !== '') {
-    cards.identity.fields.push({ key: 'background', value: background, visibility: '私密' })
-    mapping.push('identity.background → 身份卡 background（私密：主人背景属主人私有事实）')
+  push('name', c.identity?.name, 'identity.name')
+  push('role', c.identity?.role, 'identity.role')
+  push('background', c.identity?.background, 'identity.background')
+  const toneRaw = normalizePersonaLine(c.persona?.tone)
+  const toneValue = TONE_LABEL[toneRaw] ?? toneRaw
+  if (toneValue !== '') {
+    cards.identity.fields.push({ key: 'tone', value: toneValue, visibility: '公开', builtIn: true })
+    mapping.push('persona.tone → 身份卡 语气（公开）')
   }
-  if (tone !== '') {
-    cards.identity.fields.push({ key: 'tone', value: tone, visibility: '公开' })
-    mapping.push('persona.tone → 身份卡 tone（公开）')
-  }
-  if (style !== '') {
-    cards.identity.fields.push({ key: 'style', value: style, visibility: '公开' })
-    mapping.push('persona.style → 身份卡 style（公开）')
-  }
-  if (values !== '') {
-    cards.policy.rules.push({ id: 'values', when: '始终', act: `价值观与原则：${values}`, enabled: true })
-    mapping.push('persona.values → 策略卡 values（始终生效）')
-  }
-  if (rules !== '') {
-    cards.policy.rules.push({ id: 'rules', when: '处理事务时', act: `决策与做事方式：${rules}`, enabled: true })
-    mapping.push('persona.rules → 策略卡 rules')
-  }
-  if (avoid !== '') {
-    cards.policy.rules.push({ id: 'avoid', when: '始终', act: `禁忌——以下绝不做：${avoid}`, enabled: true })
-    mapping.push('persona.avoid → 策略卡 avoid（红线类）')
-  }
-  if (escalation !== '') {
-    cards.policy.rules.push({ id: 'escalation', when: '权限不足 / 敏感操作 / 访客投诉', act: '礼貌说明权限不足并拒绝，或转达主人处理', escalate: escalation, enabled: true })
-    mapping.push('persona.escalation → 策略卡 escalation（触发 → 转人工）')
-  }
-  if (Array.isArray(c.knowledge?.seeds)) {
-    let n = 0
-    for (const seed of c.knowledge.seeds as unknown[]) {
-      if (typeof seed !== 'string' || seed.trim() === '') continue
-      cards.state.items.push({ id: `seed-${n + 1}`, content: normalizePersonaLine(seed).slice(0, 500), statementType: '候选', source: 'seed' })
-      n += 1
-    }
-    mapping.push(`knowledge.seeds → 状态卡 ${n} 条候选（source=seed）`)
-  }
-  mapping.push('样例卡为空：旧配置没有对照样例，v2 从主人语料/纠正中积累')
+  push('style', c.persona?.style, 'persona.style')
+  push('values', c.persona?.values, 'persona.values')
+  push('workingStyle', c.persona?.rules, 'persona.rules（做事方式，文本保真；可在人格卡拆成规则）')
+  push('escalation', c.persona?.escalation, 'persona.escalation')
+  push('avoid', c.persona?.avoid, 'persona.avoid')
+  mapping.push('知识种子不迁移：保存时已写入 dsh-memory 记忆库，不属人格卡')
+  mapping.push('样例卡为空：旧配置没有对照样例，从主人语料/纠正中积累')
   return { ok: true, cards, mapping }
 }

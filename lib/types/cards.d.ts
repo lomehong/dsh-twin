@@ -2,7 +2,18 @@ export interface IdentityField {
     key: string;
     value: string;
     visibility: '公开' | '私密';
+    /** 内置字段（原设置窗口人格项）：恒存在、不可删除、键不可改，只有值与可见性可编辑 */
+    builtIn?: boolean;
 }
+/**
+ * 内置身份字段（原「分身设置」人格 Tab 的九个固设置项）。
+ * 定义在 ./built-in-fields.ts（客户端共用）；此处 re-export 供既有引用。
+ * - 恒存在：normalizeCards 对缺失项自动补空值——「字段不在」在模型层不可能发生；
+ * - 不可删除：保存入口忽略对内置字段的删除，UI 层也不提供删除按钮；
+ * - 可见性默认值与 legacy renderPersona 行为逐一对齐：背景（主人私有事实）私密，
+ *   其余为行为类/公开信息（价值观是分身对任何对话对象的准则，不是隐私）。
+ */
+export { BUILT_IN_FIELDS } from './built-in-fields.ts';
 export interface PolicyRule {
     id: string;
     /** 触发条件 */
@@ -63,7 +74,8 @@ export interface CardsRevision {
     regressionPassed: boolean;
     cards: TwinCards;
 }
-/** 归一化整份卡（幂等；未知键丢弃——向前兼容由版本号管理） */
+/** 卡内容是否实质为空（内置字段全空值、无自定义字段、无任何规则/样例/状态条目）。 */
+export declare function isEffectivelyEmpty(cards: TwinCards): boolean;
 export declare function normalizeCards(input: unknown): TwinCards;
 export interface CardsState {
     file: CardsFile;
@@ -116,5 +128,14 @@ export interface MigrationResult {
  * - persona.escalation → 策略卡升级路径条目
  * - knowledge.seeds → 状态卡候选条目（source=seed）
  * - 样例卡为空（旧配置没有对照样例）
+ */
+/**
+ * legacy twin-config → 人格卡一次性迁移（保真映射）。
+ *
+ * 与旧版差异（v2 合并设计）：九个人格项全部落为**身份卡内置字段**（builtIn），
+ * 不再拆进策略卡——自由文本强拆 when→act→escalate 必然失真；规则化是人格卡页
+ * 里「拆成可测试的规则 ↗」引导下主人的主动动作。知识种子不搬（保存时已写入
+ * dsh-memory 记忆库，本就不属人格卡）。可见性默认值与 legacy renderPersona
+ * 行为逐一对齐：background/workingStyle 私密（主人私有），其余公开（行为类）。
  */
 export declare function migrateTwinConfigToCards(cfg: unknown): MigrationResult;

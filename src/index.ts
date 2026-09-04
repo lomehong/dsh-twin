@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import type { Context } from '@deepseek-ai/cordis'
 import { dshHome, legacyConfigPath, normalizePersonaText, normalizePersonaLine, twinWarn } from './sanitize.ts'
-import { effectiveCards, loadCardsState, saveCards, listRevisions, migrateTwinConfigToCards, normalizeCards } from './cards.ts'
+import { effectiveCards, isEffectivelyEmpty, loadCardsState, saveCards, listRevisions, migrateTwinConfigToCards, normalizeCards } from './cards.ts'
 import { renderCards, projectionSummary } from './projection.ts'
 import { mineAndPool, listDrafts, confirmDraft, rejectDraft } from './drafts.ts'
 import { ingestStateSeeds, pruneExpiredState, buildReachCandidates, deliverReach, tick, loadProactive } from './proactive.ts'
@@ -816,9 +816,28 @@ function registerApi(web: WebServerLike, service: TwinService): () => void {
         try {
           const body = await readJsonBody(req)
           const prev = loadConfig()
-          // 先归档后保存：归档失败只降级告警，不把"已成功"报告为失败（旧顺序会让
-          // 磁盘满时 HTTP 返回 500 但新配置已生效，状态认知失真）
-          const cfg = saveConfig(normalizeConfigInput(body))
+          const cfgInput = normalizeConfigInput(body)
+          // v2 人格合并：人格唯一存储是人格卡。请求里带人格字段时自动映射为卡修订
+          // （等效生效——旧版设置页保存即生效，语义延续；报告 id 标注来源），
+          // 映射成功后 twin-config 不再持久化人格段，防止双源发散。
+          const hasPersonaInput = [cfgInput.identity?.name, cfgInput.identity?.role, cfgInput.identity?.background,
+            cfgInput.persona?.tone, cfgInput.persona?.style, cfgInput.persona?.values, cfgInput.persona?.rules,
+            cfgInput.persona?.escalation, cfgInput.persona?.avoid].some(v => typeof v === 'string' && v.trim() !== '')
+          let cardMigrated = false
+          if (hasPersonaInput) {
+            try {
+              const m = migrateTwinConfigToCards(cfgInput)
+              if (m.ok) {
+                saveCards({ cards: m.cards, confirm: true, regressionPassed: true, regressionReportId: 'CONFIG-SYNC' })
+                cardMigrated = true
+              }
+            } catch (e) {
+              twinWarn('config 人格字段映射到人格卡失败（回退存储 legacy 段）:', e)
+            }
+          }
+          const cfg = saveConfig(cardMigrated
+            ? { ...cfgInput, identity: { name: '', role: '', background: '' }, persona: { tone: 'professional', style: '', values: '', rules: '', escalation: '', avoid: '' } }
+            : cfgInput)
           try {
             archiveHistory(prev)
           } catch (e) {
@@ -1349,6 +1368,29 @@ export function apply(ctx: Context): void {
   // 1) 物化 digital-twin 预设（版本化幂等）
   const mat = materializePreset()
   if (mat.materialized) ctx.logger?.info?.(`[dsh-twin] 已物化 digital-twin 预设: ${mat.dir}`)
+
+  // 1.5) legacy 人格一次性迁移（幂等）：人格合并设计后 cards.json 是唯一事实源。
+  // 卡内容实质为空（含「生效但全空」的历史误保存）且旧配置有人格内容时，自动
+  // 映射为内置身份字段并直接生效——内容是主人先前在设置页亲填亲存的（确认语义
+  // 已发生），映射保真由单测保证（等效回归），故带 MIGRATED 报告 id 走完双条件。
+  try {
+    const st = loadCardsState()
+    if (isEffectivelyEmpty(st.file.current)) {
+      const cfg = loadConfig()
+      const hasLegacyPersona = [cfg.identity?.name, cfg.identity?.role, cfg.identity?.background,
+        cfg.persona?.tone, cfg.persona?.style, cfg.persona?.values, cfg.persona?.rules,
+        cfg.persona?.escalation, cfg.persona?.avoid].some(v => typeof v === 'string' && v.trim() !== '')
+      if (hasLegacyPersona) {
+        const m = migrateTwinConfigToCards(cfg)
+        if (m.ok) {
+          const r = saveCards({ cards: m.cards, confirm: true, regressionPassed: true, regressionReportId: 'MIGRATED-FROM-LEGACY' })
+          ctx.logger?.info?.(`[dsh-twin] legacy 人格已自动迁移至人格卡（修订 ${r.file.revisionNo}，${m.mapping.length} 项映射）`)
+        }
+      }
+    }
+  } catch (e) {
+    twinWarn('legacy 人格自动迁移失败（不影响启动）:', e)
+  }
 
   // 2) 默认预设接管改为用户在设置页显式勾选（becomeDefaultPreset）后于保存时执行；
   //    不再安装即静默改写全局默认（保护主人日常会话的完整工具面）

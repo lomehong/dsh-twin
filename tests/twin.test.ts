@@ -383,3 +383,50 @@ describe('effectiveCards（空生效卡回落 legacy）', () => {
     expect(c?.identity.fields[0]?.value).toBe('小子')
   })
 })
+
+describe('内置身份字段（v2 人格合并）', () => {
+  it('normalizeCards 对缺失/被删的内置字段自动补空值，并保持固定顺序', async () => {
+    const { normalizeCards, BUILT_IN_FIELDS } = await import('../src/cards.ts')
+    // 输入只有 1 个自定义字段：内置九项应被补齐且在前
+    const n = normalizeCards({ identity: { fields: [{ key: '毕业院校', value: 'X大', visibility: '公开' }] } })
+    const keys = n.identity.fields.map(f => f.key)
+    expect(keys.slice(0, BUILT_IN_FIELDS.length)).toEqual(BUILT_IN_FIELDS.map(d => d.key))
+    expect(n.identity.fields.filter(f => f.builtIn === true).length).toBe(BUILT_IN_FIELDS.length)
+    expect(n.identity.fields.at(-1)?.value).toBe('X大')
+  })
+
+  it('migrateTwinConfigToCards：九项全部落为内置身份字段（不拆策略卡），tone 转中文，种子不搬', async () => {
+    const { migrateTwinConfigToCards } = await import('../src/cards.ts')
+    const m = migrateTwinConfigToCards({
+      identity: { name: '小子', role: '私人助理', background: '我的日常助理' },
+      persona: { tone: 'friendly', style: '主动贴心', values: '以主人利益为先', rules: '先听清需求再行动', escalation: '涉钱转主人', avoid: '不擅自承诺' },
+      knowledge: { seeds: ['种子一条'] },
+    })
+    expect(m.ok).toBe(true)
+    const c = m.cards!
+    expect(c.identity.fields.filter(f => f.builtIn === true).map(f => f.value)).toEqual(
+      ['小子', '私人助理', '我的日常助理', '亲切', '主动贴心', '以主人利益为先', '先听清需求再行动', '涉钱转主人', '不擅自承诺'])
+    expect(c.identity.fields.find(f => f.key === 'background')?.visibility).toBe('私密')
+    expect(c.policy.rules.length).toBe(0)
+    expect(c.state.items.length).toBe(0) // 种子不搬
+  })
+
+  it('renderCards：内置字段中文标签 + tone 渲染完整行为句 + 私密访客裁剪', async () => {
+    const { normalizeCards } = await import('../src/cards.ts')
+    const { renderCards } = await import('../src/projection.ts')
+    const c = normalizeCards({
+      identity: { fields: [
+        { key: 'name', value: '小子', visibility: '公开' },
+        { key: 'background', value: '主人在推A产线改造', visibility: '私密' },
+        { key: 'tone', value: '亲切', visibility: '公开' },
+      ] },
+    })
+    const master = renderCards(c, { role: 'master' })
+    expect(master).toContain('- 名字：小子')
+    expect(master).toContain('- 背景：主人在推A产线改造')
+    expect(master).toContain('以亲切、友好、接地气的语气回答。')
+    expect(master).not.toContain('- tone：')
+    const guest = renderCards(c, { role: 'guest' })
+    expect(guest).not.toContain('主人在推A产线改造')
+  })
+})

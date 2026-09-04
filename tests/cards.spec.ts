@@ -72,10 +72,12 @@ describe('normalizeCards（入口归一化）', () => {
     expect(n.policy.rules[0]!.act.startsWith('#')).toBe(false)
   })
 
-  it('空值条目被丢弃', async () => {
-    const { normalizeCards } = await C()
+  it('空值条目被丢弃（自定义）；内置字段恒存在（补空值）', async () => {
+    const { normalizeCards, BUILT_IN_FIELDS } = await C()
     const n = normalizeCards({ identity: { fields: [{ key: '', value: '' }] } })
-    expect(n.identity.fields.length).toBe(0)
+    // 自定义空条目被丢弃；内置九项恒存在（值空）——v2 人格合并后字段不可删除
+    expect(n.identity.fields.length).toBe(BUILT_IN_FIELDS.length)
+    expect(n.identity.fields.every(f => f.builtIn === true && f.value === '')).toBe(true)
   })
 })
 
@@ -115,22 +117,24 @@ describe('生效纪律（主人签名 + 回归双条件）', () => {
   })
 })
 
-describe('迁移确定性（twin-config → 四张卡）', () => {
-  it('映射零字段丢失：background 归私密、escalation 带升级路径、seeds 进状态卡', async () => {
-    const { migrateTwinConfigToCards } = await C()
+describe('迁移确定性（twin-config → 四张卡，v2 全部落身份卡内置字段）', () => {
+  it('九项全部落为内置身份字段（保真文本、不拆策略卡）；种子不搬（已写记忆库）', async () => {
+    const { migrateTwinConfigToCards, BUILT_IN_FIELDS } = await C()
     const m = migrateTwinConfigToCards({
       identity: { name: '小静', role: 'COO 助理', background: '制造企业' },
-      persona: { tone: '专业', style: '务实', values: '诚信', rules: '先确认再行动', escalation: '涉钱转主人', avoid: '不代做主' },
+      persona: { tone: 'professional', style: '务实', values: '诚信', rules: '先确认再行动', escalation: '涉钱转主人', avoid: '不代做主' },
       knowledge: { seeds: ['主人在推 A 产线', ''] },
     })
     expect(m.ok).toBe(true)
     const c = m.cards!
-    expect(c.identity.fields.map(f => f.key)).toEqual(['name', 'role', 'background', 'tone', 'style'])
+    expect(c.identity.fields.map(f => f.key)).toEqual(BUILT_IN_FIELDS.map(d => d.key))
+    expect(c.identity.fields.every(f => f.builtIn === true)).toBe(true)
     expect(c.identity.fields.find(f => f.key === 'background')!.visibility).toBe('私密')
-    expect(c.policy.rules.find(r => r.id === 'escalation')!.escalate).toContain('涉钱转主人')
-    expect(c.policy.rules.find(r => r.id === 'avoid')!.act).toContain('绝不做')
-    expect(c.state.items.length).toBe(1)
-    expect(c.state.items[0]!.statementType).toBe('候选')
+    expect(c.identity.fields.find(f => f.key === 'workingStyle')!.value).toBe('先确认再行动')
+    expect(c.identity.fields.find(f => f.key === 'escalation')!.value).toBe('涉钱转主人')
+    expect(c.identity.fields.find(f => f.key === 'tone')!.value).toBe('专业')
+    expect(c.policy.rules.length).toBe(0)
+    expect(c.state.items.length).toBe(0)
     expect(m.mapping.length).toBeGreaterThan(5)
   })
 })
