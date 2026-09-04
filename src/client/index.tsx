@@ -1,7 +1,7 @@
 /**
  * dsh-twin 设置向导（客户端）
  *
- * 注册为顶级设置 Tab（settings.section，id=twin）：模板 / 知识 / 监控，并支持导入导出人格卡。人格的唯一编辑入口在数字分身 Tab 的人格卡。
+ * 注册为顶级设置 Tab（settings.section，id=twin）：模板 / 知识（分身初始化与数据管理），支持导入导出人格卡。人格编辑入口与运行监控在数字分身 Tab。
  * 通过 /dsh-twin/config 读写；人格由宿主端注入 system prompt，知识写入 dsh-memory。
  * 插件=纯框架，人格=数据（twin-config.json），可导入导出随身携带。
  * 本 Tab 只承担初始配置（向导性质）；日常运营（修订确认/人格卡/学习队列）在主对话窗口「数字分身」Tab。
@@ -52,48 +52,6 @@ const PRESETS = [
 
 const emptyConfig: Config = { template: 'custom', knowledge: { seeds: [] } }
 
-/** 模型降级链状态卡：探测 dsh-model-failover 是否已装/已配链（套餐超限自动切换）。 */
-function FailoverCard() {
-  const [state, setState] = useState<'checking' | 'missing' | 'unconfigured' | 'ok'>('checking')
-  useEffect(() => {
-    let alive = true
-    fetch('/model-failover/api/status')
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d) => {
-        if (!alive) return
-        const entries = d?.status?.entries ?? []
-        setState(Array.isArray(entries) && entries.length > 0 ? 'ok' : 'unconfigured')
-      })
-      .catch(() => { if (alive) setState('missing') })
-    return () => { alive = false }
-  }, [])
-  if (state === 'missing') return null
-  return (
-    <div
-      style={
-        // 本组件在模块作用域，够不到 TwinSettingsPage 内部的样式对象 s——内联等价样式
-        // （historical s.hint + marginTop）。此前引用 s.hint 是 ReferenceError，监控 Tab 必崩。
-        {
-          fontSize: 12,
-          color: 'var(--dsw-alias-label-tertiary)',
-          background: 'var(--dsw-alias-bg-layer-1)',
-          border: '1px solid #eee',
-          borderRadius: 6,
-          padding: '8px 10px',
-          marginTop: 8,
-        }
-      }
-    >
-      模型降级链：
-      {state === 'ok' && '已配置（套餐超限/余额不足时按链自动切换，窗口重置自动切回）'}
-      {state === 'unconfigured' && (
-        <>未配置——分身在模型套餐超限时会直接报错。建议在「设置 → 模型切换」配置降级链。</>
-      )}
-      {state === 'checking' && '检测中…'}
-    </div>
-  )
-}
-
 async function api(path: string, method = 'GET', body?: unknown) {
   const opts: RequestInit = { method, headers: { Accept: 'application/json' } }
   if (body) {
@@ -115,8 +73,7 @@ function TwinSettingsPage() {
   const [toolHint, setToolHint] = useState('')
   const [stats, setStats] = useState<{ memoryTotal: number; memoryTypes: Record<string, number>; hasPersona: boolean } | null>(null)
   const [cardsState, setCardsState] = useState<CardsState | null>(null)
-  const [monitor, setMonitor] = useState<{ sessionCount: number; twinSessionCount: number; tokens: Record<string, number>; llmMs: number; turns: number; steps: number; errors: number; errorRate: number } | null>(null)
-  const [tab, setTab] = useState<'persona' | 'knowledge' | 'monitor'>('persona')
+  const [tab, setTab] = useState<'persona' | 'knowledge'>('persona')
 
   const load = useCallback(async () => {
     try {
@@ -140,12 +97,6 @@ function TwinSettingsPage() {
       if (c.ok) setCardsState(c as CardsState)
     } catch {
       /* 忽略人格卡加载失败 */
-    }
-    try {
-      const m = await api('/dsh-twin/monitor', 'GET')
-      if (m.ok && m.monitor) setMonitor(m.monitor)
-    } catch {
-      /* 忽略监控 */
     }
     setLoaded(true)
   }, [])
@@ -311,10 +262,10 @@ function TwinSettingsPage() {
   return (
     <div style={s.wrap}>
       <h1 style={s.h}>数字分身设置</h1>
-      <p style={s.sub}>配置你的数字分身：模板一键生成初版人格卡、知识写入共享记忆。人格的唯一编辑入口在主对话窗口「数字分身」Tab → 人格卡（此处只读摘要，避免两处编辑冲突）。</p>
+      <p style={s.sub}>分身的初始化与数据管理：模板一键生成初版人格卡、知识种子写入共享记忆、人格卡导入导出。人格编辑与运行监控在主对话窗口「数字分身」Tab。</p>
 
       <div style={s.tabBar}>
-        {([['persona', '人格'], ['knowledge', '知识'], ['monitor', '监控']] as const).map(([id, label]) => (
+        {([['persona', '人格'], ['knowledge', '知识']] as const).map(([id, label]) => (
           <button key={id} style={tab === id ? s.tabOn : s.tab} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
@@ -367,22 +318,6 @@ function TwinSettingsPage() {
             此处编辑的是「种子」；保存后写入共享记忆库。要查看 / 编辑 / 删除已入库的
             单条记忆（含分身对话中沉淀的记忆），请到左侧「记忆」标签页（dsh-memory 提供）。
           </div>
-        </div>
-      )}
-
-      {tab === 'monitor' && (
-        <div style={s.section}>
-          <div style={s.secTitle}>运行监控</div>
-          {monitor ? (
-            <div style={s.hint}>
-              会话 {monitor.sessionCount}（分身 {monitor.twinSessionCount}）· Turns {monitor.turns} · Steps {monitor.steps} · 错误 {monitor.errors}（{Math.round(monitor.errorRate * 100)}%）· LLM 耗时 {Math.round(monitor.llmMs / 1000)}s
-              <br />
-              Tokens：输入 {monitor.tokens.input} · 输出 {monitor.tokens.output} · 缓存读 {monitor.tokens.cacheRead} · 缓存写 {monitor.tokens.cacheWrite}
-            </div>
-          ) : (
-            <div style={s.hint}>暂无监控数据（使用分身会话后出现）。</div>
-          )}
-          <FailoverCard />
         </div>
       )}
 

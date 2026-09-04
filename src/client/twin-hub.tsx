@@ -1,7 +1,7 @@
 /**
  * 数字分身主面板（v2，客户端）：单一 conversation.view Tab。
  *
- * 内部集成五个子视图：今日待办 · 学习队列 · 关系档案 · 影子测试 · 人格卡。
+ * 内部集成六个子视图：今日待办 · 学习队列 · 关系档案 · 影子测试 · 监控 · 人格卡。
  * 通过内部 Tab 栏切换，不增加会话 Tab 栏宽度。
  */
 import { useState } from 'react'
@@ -10,17 +10,19 @@ import { DashboardPage } from './dashboard.tsx'
 import { LearningPage } from './learning.tsx'
 import { ProfilesPage } from './profiles.tsx'
 import { ShadowPage } from './shadow.tsx'
+import { MonitorPage } from './monitor.tsx'
 import { CardsPage } from './cards.tsx'
 
 export const inject = ['slots']
 
-type SubTab = 'todo' | 'learning' | 'profiles' | 'shadow' | 'cards'
+type SubTab = 'todo' | 'learning' | 'profiles' | 'shadow' | 'monitor' | 'cards'
 
 const SUB_TABS: Array<{ id: SubTab; label: string }> = [
   { id: 'todo', label: '今日待办' },
   { id: 'learning', label: '学习队列' },
   { id: 'profiles', label: '关系档案' },
   { id: 'shadow', label: '影子测试' },
+  { id: 'monitor', label: '监控' },
   { id: 'cards', label: '人格卡' },
 ]
 
@@ -85,6 +87,7 @@ function TwinHubPage() {
       {tab === 'learning' && <LearningPage />}
       {tab === 'profiles' && <ProfilesPage />}
       {tab === 'shadow' && <ShadowPage />}
+      {tab === 'monitor' && <MonitorPage />}
       {tab === 'cards' && <CardsPage />}
     </div>
   )
