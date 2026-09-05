@@ -38,7 +38,7 @@ async function api<T>(path: string): Promise<T> {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { padding: '18px 20px', maxWidth: '860px' },
+  wrap: { padding: '18px 20px' },
   h: { fontSize: '19px', fontWeight: 700, margin: '0 0 2px', color: 'var(--dsw-alias-label-primary)' },
   sub: { fontSize: '13px', color: 'var(--dsw-alias-label-tertiary)', margin: '0 0 16px' },
   cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 },

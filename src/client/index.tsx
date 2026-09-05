@@ -235,7 +235,7 @@ function TwinSettingsPage() {
   }
 
   const s = {
-    wrap: { padding: '20px', maxWidth: '720px' },
+    wrap: { padding: '20px' },
     h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
     sub: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary)', margin: '0 0 16px 0' },
     section: { marginBottom: '18px' },

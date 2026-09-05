@@ -31,7 +31,7 @@ const SUB_TABS: Array<{ id: SubTab; label: string }> = [
 ]
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { padding: '18px 20px', maxWidth: '860px' },
+  wrap: { padding: '18px 20px' },
   tabBar: {
     display: 'flex',
     gap: 0,

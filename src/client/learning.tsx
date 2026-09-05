@@ -57,7 +57,7 @@ async function api(path: string, method: 'GET' | 'POST', body?: unknown): Promis
 
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { padding: '20px', maxWidth: '720px' },
+  wrap: { padding: '20px' },
   h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
   sub: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary)', margin: '0 0 16px 0' },
   secTitle: { fontSize: '14px', fontWeight: 700, margin: '18px 0 8px 0', color: 'var(--dsw-alias-label-primary)' },

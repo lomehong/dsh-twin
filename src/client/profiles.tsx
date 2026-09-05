@@ -18,7 +18,7 @@ const ROLE_COLOR: Record<string, string> = { master: 'var(--dsw-alias-state-succ
 
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { padding: '20px', maxWidth: '760px' },
+  wrap: { padding: '20px' },
   h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
   sub: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary)', margin: '0 0 16px 0' },
   card: { border: '1px solid #eee', borderRadius: 10, padding: 14, marginBottom: 12, background: 'var(--dsw-alias-bg-layer-2)' },

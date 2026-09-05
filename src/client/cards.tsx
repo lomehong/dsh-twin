@@ -48,7 +48,7 @@ const inputBase: React.CSSProperties = {
   fontSize: 13, background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)',
 }
 const s: Record<string, React.CSSProperties> = {
-  wrap: { padding: '14px 20px 48px', maxWidth: 880 },
+  wrap: { padding: '14px 20px 48px' },
   titleRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 },
   h: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--dsw-alias-label-primary)' },
   badge: { fontSize: 12, fontWeight: 600, padding: '2px 10px', borderRadius: 999 },
