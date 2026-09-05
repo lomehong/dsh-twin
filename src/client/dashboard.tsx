@@ -60,6 +60,9 @@ export function DashboardPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  // 数据源插件缺席登记（宪章 §3.2 显式降级）：缺席卡显示「未安装」而非绿色 0
+  // ——"没有待办"（一切正常）与"数据源不在"（增强未启用）是两回事。
+  const [missing, setMissing] = useState<Record<string, boolean>>({})
 
   const load = useCallback(async () => {
     try {
@@ -71,6 +74,13 @@ export function DashboardPage() {
         api<{ reports: Array<{ id: string; at: string; total: number; passed: number }> }>('/dsh-regression/reports').catch(() => null),
         api<{ reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }> }>('/dsh-twin/proactive').catch(() => null),
       ])
+      setMissing({
+        learning: learning === null,
+        actors: profiles === null,
+        shadow: shadow === null,
+        ledger: ledger === null,
+        regression: regressions === null,
+      })
       const openLoops = (profiles?.profiles ?? []).flatMap(p =>
         (p.openLoops ?? []).map(o => ({ actorId: p.entity.id, displayName: p.entity.displayName, memoryId: o.memoryId, content: o.content, openedAt: o.openedAt })),
       )
@@ -126,43 +136,43 @@ export function DashboardPage() {
   // 主题色语义：卡片数字颜色
   const numColor = (n: number) => n > 0 ? 'var(--dsw-alias-state-warn-primary)' : 'var(--dsw-alias-state-success-primary)'
 
+  // 数据源缺席的卡片：数字显示「—」、灰点，注明“提供方插件未安装”
+  // ——不把“增强未启用”伪装成“一切正常”（宪章 §3.2 显式降级）。
+  function StatCard({ name, ctx, count, absent }: { name: string; ctx: string; count: number; absent: boolean }): JSX.Element {
+    return (
+      <div style={s.card}>
+        <div style={{ ...s.dot, background: absent ? 'var(--dsw-alias-label-tertiary)' : count > 0 ? 'var(--dsw-alias-state-warn-primary)' : 'var(--dsw-alias-state-success-primary)' }} />
+        <div style={{ ...s.num, color: absent ? 'var(--dsw-alias-label-tertiary)' : numColor(count) }}>{absent ? '—' : count}</div>
+        <div style={s.nm}>{name}</div>
+        <div style={s.ctx}>{absent ? '提供方插件未安装 · 增强未启用' : ctx}</div>
+      </div>
+    )
+  }
+
+  const missingAny = Object.values(missing).some(v => v === true)
+
   return (
     <div style={s.wrap}>
       <h1 style={s.h}>今日待办</h1>
       <p style={s.sub}>分身需要你决策/处置的事项汇总——处理完这里，其余都在自动运转。</p>
 
       <div style={s.cards}>
-        <div style={s.card}>
-          <div style={{ ...s.dot, background: d.candidates.length > 0 ? 'var(--dsw-alias-state-warn-primary)' : 'var(--dsw-alias-state-success-primary)' }} />
-          <div style={{ ...s.num, color: numColor(d.candidates.length) }}>{d.candidates.length}</div>
-          <div style={s.nm}>待确认候选</div>
-          <div style={s.ctx}>学习队列 · 达到证据门槛</div>
-        </div>
-        <div style={s.card}>
-          <div style={{ ...s.dot, background: d.openLoops.length > 0 ? 'var(--dsw-alias-state-warn-primary)' : 'var(--dsw-alias-state-success-primary)' }} />
-          <div style={{ ...s.num, color: numColor(d.openLoops.length) }}>{d.openLoops.length}</div>
-          <div style={s.nm}>待闭环事项</div>
-          <div style={s.ctx}>关系档案 · 承诺出口即开环</div>
-        </div>
-        <div style={s.card}>
-          <div style={{ ...s.dot, background: d.pendingShadow.length > 0 ? 'var(--dsw-alias-state-warn-primary)' : 'var(--dsw-alias-state-success-primary)' }} />
-          <div style={{ ...s.num, color: numColor(d.pendingShadow.length) }}>{d.pendingShadow.length}</div>
-          <div style={s.nm}>待判定盲测</div>
-          <div style={s.ctx}>影子测试 · 判断哪句像你</div>
-        </div>
-        <div style={s.card}>
-          <div style={{ ...s.dot, background: d.ledger.pendingApprovals > 0 ? 'var(--dsw-alias-state-warn-primary)' : 'var(--dsw-alias-state-success-primary)' }} />
-          <div style={{ ...s.num, color: numColor(d.ledger.pendingApprovals) }}>{d.ledger.pendingApprovals}</div>
-          <div style={s.nm}>待批审批</div>
-          <div style={s.ctx}>委托账本 · 批准即机械落账</div>
-        </div>
+        <StatCard name="待确认候选" ctx="学习队列 · 达到证据门槛" count={d.candidates.length} absent={missing.learning === true} />
+        <StatCard name="待闭环事项" ctx="关系档案 · 承诺出口即开环" count={d.openLoops.length} absent={missing.actors === true} />
+        <StatCard name="待判定盲测" ctx="影子测试 · 判断哪句像你" count={d.pendingShadow.length} absent={missing.shadow === true} />
+        <StatCard name="待批审批" ctx="委托账本 · 批准即机械落账" count={d.ledger.pendingApprovals} absent={missing.ledger === true} />
       </div>
 
-      {loaded && total === 0 && (
+      {loaded && total === 0 && !missingAny && (
         <div style={s.empty}>
           <div style={s.emptyIcon}>✓</div>
           <div style={s.emptyText}>今天没有需要你处理的事</div>
           <div style={s.emptySub}>信号自动沉淀，候选自动达门槛，一切如常。</div>
+        </div>
+      )}
+      {loaded && total === 0 && missingAny && (
+        <div style={{ ...s.empty, borderColor: 'var(--dsw-alias-border-l1)' }}>
+          <div style={s.emptySub}>部分增强插件未安装，相关卡片以「—」显示；安装后自动点亮。</div>
         </div>
       )}
 
