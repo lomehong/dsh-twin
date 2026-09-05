@@ -22,10 +22,12 @@ const s: Record<string, React.CSSProperties> = {
   failover: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', background: 'var(--dsw-alias-bg-layer-1)', border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 8, padding: '8px 10px', marginTop: 12 },
 }
 
-/** 模型降级链状态卡：探测 dsh-model-failover 是否已装/已配链（套餐超限自动切换）。 */
-function FailoverCard() {
+/** 模型降级链状态卡：仅在提供方插件已安装时探测配置状态；
+ *  未安装时显式降级为一行提示（不发投机请求——控制台不再出现 404）。 */
+function FailoverCard({ installed }: { installed: boolean }) {
   const [state, setState] = useState<'checking' | 'missing' | 'unconfigured' | 'ok'>('checking')
   useEffect(() => {
+    if (!installed) { setState('missing'); return }
     let alive = true
     fetch('/model-failover/api/status')
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
@@ -36,8 +38,14 @@ function FailoverCard() {
       })
       .catch(() => { if (alive) setState('missing') })
     return () => { alive = false }
-  }, [])
-  if (state === 'missing') return null
+  }, [installed])
+  if (state === 'missing') {
+    return (
+      <div style={s.failover}>
+        模型降级链：未安装 dsh-model-failover（可选增强）——安装后可在此查看配置状态。
+      </div>
+    )
+  }
   return (
     <div style={s.failover}>
       模型降级链：
@@ -50,12 +58,17 @@ function FailoverCard() {
 
 export function MonitorPage() {
   const [monitor, setMonitor] = useState<MonitorData | null>(null)
+  const [failoverInstalled, setFailoverInstalled] = useState(false)
 
   useEffect(() => {
     let alive = true
     fetch('/dsh-twin/monitor')
       .then((r) => r.json())
-      .then((d) => { if (alive && d.ok && d.monitor) setMonitor(d.monitor) })
+      .then((d) => {
+        if (!alive || !d.ok || !d.monitor) return
+        setMonitor(d.monitor)
+        setFailoverInstalled(d.modelFailoverInstalled === true)
+      })
       .catch(() => { /* 忽略 */ })
     return () => { alive = false }
   }, [])
@@ -84,7 +97,7 @@ export function MonitorPage() {
           暂无监控数据——使用分身会话后这里会出现运行统计。
         </div>
       )}
-      <FailoverCard />
+      <FailoverCard installed={failoverInstalled} />
     </div>
   )
 }
