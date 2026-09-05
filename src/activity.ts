@@ -23,6 +23,8 @@ export interface BoardActivity {
   at: string
   runningTasks: Array<{ taskId: string; title: string; sessionId?: string }>
   freeSessions: Array<{ sessionId: string; title?: string }>
+  /** 自由会话里进行中的自主目标（objective 已由看板截断 40 字，封顶 3） */
+  goals: Array<{ sessionId: string; title?: string; objective: string; roundsStarted: number; maxGoalRounds: number }>
   pendingApprovals: Array<{ taskId: string; title: string }>
   recentCompleted: Array<{ taskId: string; title: string; status: string; finishedAt?: string; summary?: string }>
 }
@@ -55,9 +57,10 @@ export function renderActivitySection(opts: { guestView: boolean }): string {
 
   const runningTasks = act.runningTasks ?? []
   const freeSessions = act.freeSessions ?? []
+  const goals = act.goals ?? []
   const pendingApprovals = act.pendingApprovals ?? []
   const recentCompleted = act.recentCompleted ?? []
-  if (runningTasks.length === 0 && freeSessions.length === 0 && pendingApprovals.length === 0 && recentCompleted.length === 0) {
+  if (runningTasks.length === 0 && freeSessions.length === 0 && goals.length === 0 && pendingApprovals.length === 0 && recentCompleted.length === 0) {
     return ''
   }
 
@@ -72,8 +75,15 @@ export function renderActivitySection(opts: { guestView: boolean }): string {
   if (pendingApprovals.length > 0) {
     lines.push(`- 待主任审批 ${pendingApprovals.length} 项：${pendingApprovals.map(t => `〈${t.title}〉`).join('、')}`)
   }
+  if (goals.length > 0) {
+    lines.push(`- 自主目标 ${goals.length} 个（自由会话推进中）：${goals.map(g => `〈${g.objective}〉第 ${g.roundsStarted}/${g.maxGoalRounds} 轮`).join('、')}`)
+  }
   if (freeSessions.length > 0) {
-    lines.push(`- 自由会话 ${freeSessions.length} 个（未归属任务）：${freeSessions.map(x => `〈${x.title ?? x.sessionId.slice(0, 8)}〉`).join('、')}`)
+    const goalSessionIds = new Set(goals.map(g => g.sessionId))
+    const plain = freeSessions.filter(x => !goalSessionIds.has(x.sessionId))
+    if (plain.length > 0) {
+      lines.push(`- 自由会话 ${plain.length} 个（未归属任务）：${plain.map(x => `〈${x.title ?? x.sessionId.slice(0, 8)}〉`).join('、')}`)
+    }
   }
   if (recentCompleted.length > 0) {
     lines.push(`- 最近完成：${recentCompleted.map(t => `〈${t.title}〉${t.status}`).join('、')}`)

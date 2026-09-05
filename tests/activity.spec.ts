@@ -58,4 +58,15 @@ describe('renderActivitySection', () => {
     const text = renderActivitySection({ guestView: false })
     expect(text).toContain('〈abcdefgh〉')
   })
+
+  it('自主目标维度：渲染轮次与 objective，且该会话不再进自由会话行', () => {
+    injectBoardGetter(() => boardWith({
+      freeSessions: [{ sessionId: 'sess-goal', title: '长任务现场' }],
+      goals: [{ sessionId: 'sess-goal', title: '长任务现场', objective: '整理本周全部会话要点并生成纪要', roundsStarted: 2, maxGoalRounds: 5 }],
+    }))
+    const text = renderActivitySection({ guestView: false })
+    expect(text).toContain('自主目标 1 个（自由会话推进中）')
+    expect(text).toContain('〈整理本周全部会话要点并生成纪要〉第 2/5 轮')
+    expect(text).not.toContain('未归属任务')
+  })
 })

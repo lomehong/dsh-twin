@@ -29,6 +29,14 @@ export interface BoardActivity {
         sessionId: string;
         title?: string;
     }>;
+    /** 自由会话里进行中的自主目标（objective 已由看板截断 40 字，封顶 3） */
+    goals: Array<{
+        sessionId: string;
+        title?: string;
+        objective: string;
+        roundsStarted: number;
+        maxGoalRounds: number;
+    }>;
     pendingApprovals: Array<{
         taskId: string;
         title: string;
