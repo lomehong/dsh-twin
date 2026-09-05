@@ -29,7 +29,7 @@ interface DashboardData {
   reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }>
 }
 
-const EMPTY: DashboardData = { candidates: [], openLoops: [], pendingShadow: [], ledger: { pendingApprovals: 0, blocked: 0, total: 0 }, regressions: [], reaches: [] }
+const EMPTY: DashboardData = { candidates: [], openLoops: [], pendingShadow: [], ledger: { pendingApprovals: 0, blocked: 0, total: 0 }, approvals: [], regressions: [], reaches: [] }
 
 
 async function api<T>(path: string): Promise<T> {
