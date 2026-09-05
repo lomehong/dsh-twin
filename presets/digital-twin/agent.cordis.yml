@@ -1,4 +1,4 @@
-# The `digital-twin` agent preset: a CONVERSATION-FIRST agent for the digital
+# The `digital-twin` agent preset: a conversation-first governed agent for the digital
 # avatar. Personality is injected by the dsh-twin host bundle through a
 # `systemPrompt` section reading the twin config. Shell/filesystem tools are
 # restored for owner sessions (tail section, aligned with `standard`); the

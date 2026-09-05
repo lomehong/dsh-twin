@@ -10,11 +10,21 @@ import { useState, useEffect, useCallback } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 
 
+interface LedgerApproval {
+  id: string
+  recordId: string
+  actionType: string
+  targetScope: string
+  createdAt: string
+  expiresAt: string
+}
+
 interface DashboardData {
   candidates: Array<{ id: string; kind: string; payload: Record<string, unknown>; createdAt: string }>
   openLoops: Array<{ actorId: string; displayName?: string; memoryId: string; content: string; openedAt: string }>
   pendingShadow: Array<{ id: string; visitorInput: string }>
   ledger: { pendingApprovals: number; blocked: number; total: number }
+  approvals: LedgerApproval[]
   regressions: Array<{ id: string; at: string; total: number; passed: number }>
   reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }>
 }
@@ -66,11 +76,12 @@ export function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [learning, profiles, shadow, ledger, regressions, proactive] = await Promise.all([
+      const [learning, profiles, shadow, ledger, approvals, regressions, proactive] = await Promise.all([
         api<{ candidates: Array<{ id: string; kind: string; payload: Record<string, unknown>; createdAt: string }> }>('/dsh-twin/learning').catch(() => null),
         api<{ profiles: Array<{ entity: { id: string; displayName?: string }; openLoops: Array<{ memoryId: string; content: string; openedAt: string }> }> }>('/dsh-actors/profiles').catch(() => null),
         api<{ pairs: Array<{ id: string; visitorInput: string }> }>('/dsh-regression/shadow/pending').catch(() => null),
         api<{ stats?: { pendingApprovals: number; byStatus?: Record<string, number>; total?: number } }>('/dsh-ledger/stats').catch(() => null),
+        api<{ approvals: Array<LedgerApproval> }>('/dsh-ledger/approvals').catch(() => null),
         api<{ reports: Array<{ id: string; at: string; total: number; passed: number }> }>('/dsh-regression/reports').catch(() => null),
         api<{ reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }> }>('/dsh-twin/proactive').catch(() => null),
       ])
@@ -89,10 +100,11 @@ export function DashboardPage() {
         openLoops,
         pendingShadow: shadow?.pairs ?? [],
         ledger: {
-          pendingApprovals: ledger?.stats?.pendingApprovals ?? 0,
+          pendingApprovals: approvals?.approvals?.length ?? ledger?.stats?.pendingApprovals ?? 0,
           blocked: ledger?.stats?.byStatus?.['已阻断'] ?? 0,
           total: ledger?.stats?.total ?? 0,
         },
+        approvals: approvals?.approvals ?? [],
         regressions: (regressions?.reports ?? []).slice(0, 1),
         reaches: (proactive?.reaches ?? []).slice(-8),
       })
@@ -128,6 +140,38 @@ export function DashboardPage() {
     setMsg(`已驳回 ${d.candidates.length} 个候选`)
     void load()
   }
+  // F-04 审批闭环：批准/驳回账本令牌；批准后解析 digest 中的看板任务号并自动重跑
+  // （授权在位时重试裁决即放行——grantCovers 命中）。回调失败不影响已落账的裁决。
+  const decide = async (approvalId: string, approved: boolean): Promise<void> => {
+    setBusy(true)
+    try {
+      const resp = await fetch('/dsh-ledger/approve', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvalId, via: 'web' }),
+      })
+      const payload = await resp.json() as { ok?: boolean; record?: { target?: { digest?: string } }; error?: string }
+      if (approved === false) {
+        await fetch('/dsh-ledger/reject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approvalId }) })
+      }
+      if (approved) {
+        const digest = payload.record?.target?.digest ?? ''
+        const m = /TB-[A-Za-z0-9_-]+/.exec(digest)
+        if (m !== null) {
+          await fetch('/dsh-task-board/action', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'run', id: m[0] }),
+          }).catch(() => undefined)
+        }
+      }
+      setMsg(approved ? '已批准并机械落账；关联看板任务已自动重试' : '已驳回（记入账本历史）')
+      await load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function closeLoop(memoryId: string) {
     await fetch('/dsh-memory/openloop/close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memoryId, via: '主人确认' }) })
     void load()
@@ -162,6 +206,23 @@ export function DashboardPage() {
         <StatCard name="待判定盲测" ctx="影子测试 · 判断哪句像你" count={d.pendingShadow.length} absent={missing.shadow === true} />
         <StatCard name="待批审批" ctx="委托账本 · 批准即机械落账" count={d.ledger.pendingApprovals} absent={missing.ledger === true} />
       </div>
+
+      {d.approvals.length > 0 && (
+        <>
+          <div style={s.section}>待批审批（{d.approvals.length}）</div>
+          {d.approvals.map(a => (
+            <div key={a.id} style={s.item}>
+              <span style={s.chip}>{a.actionType}</span>
+              <span style={s.itemText}>
+                {a.targetScope}
+                {a.expiresAt ? ` · 令牌有效期至 ${a.expiresAt.slice(11, 16)}` : ''}
+              </span>
+              <button style={s.btn} disabled={busy} onClick={() => void decide(a.id, true)}>批准</button>
+              <button style={s.btnDanger} disabled={busy} onClick={() => void decide(a.id, false)}>驳回</button>
+            </div>
+          ))}
+        </>
+      )}
 
       {loaded && total === 0 && !missingAny && (
         <div style={s.empty}>
