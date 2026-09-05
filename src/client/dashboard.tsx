@@ -156,14 +156,24 @@ export function DashboardPage() {
       if (approved) {
         const digest = payload.record?.target?.digest ?? ''
         const m = /TB-[A-Za-z0-9_-]+/.exec(digest)
+        // L-2：重跑失败必须让主任知道（§3.2 可感知），不能静默吞掉
+        let rerunNote = ''
         if (m !== null) {
-          await fetch('/dsh-task-board/action', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'run', id: m[0] }),
-          }).catch(() => undefined)
+          try {
+            const rerun = await fetch('/dsh-task-board/action', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'run', id: m[0] }),
+            })
+            const rr = await rerun.json() as { ok?: boolean; run?: { status?: string } }
+            rerunNote = rr.ok === true ? `；关联任务已重试（${rr.run?.status ?? ''}）` : '；关联任务重试失败，请到看板手动执行'
+          } catch {
+            rerunNote = '；关联任务重试请求失败，请到看板手动执行'
+          }
         }
+        setMsg(`已批准并机械落账${rerunNote}`)
+      } else {
+        setMsg('已驳回（记入账本历史）')
       }
-      setMsg(approved ? '已批准并机械落账；关联看板任务已自动重试' : '已驳回（记入账本历史）')
       await load()
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
