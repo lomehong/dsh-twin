@@ -66,6 +66,8 @@ export interface OptionalDeps {
     memory: boolean;
     yuyi: boolean;
     computer: boolean;
+    /** dsh-task-board 在场时追加 task_report 上报工具行（宪章第二阶段挂链） */
+    board?: boolean;
 }
 /**
  * 把内置预设物化到用户 agent-presets 根（版本化幂等）。返回是否本次写入。

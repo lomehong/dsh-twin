@@ -151,10 +151,11 @@ describe('materializePreset 版本戳', () => {
 
   it('检测到已安装的可选依赖才追加对应工具行', async () => {
     const { materializePreset } = await import('../src/index.ts')
-    const r = materializePreset({ memory: true, yuyi: true })
+    const r = materializePreset({ memory: true, yuyi: true, board: true })
     const yml = readFileSync(join(r.dir, 'agent.cordis.yml'), 'utf8')
     expect(yml).toContain("@dsh-extra/dsh-memory/tools")
     expect(yml).toContain("dsh-yuyi/tools")
+    expect(yml).toContain("@dsh-extra/dsh-task-board/tools")  // 宪章第二阶段：task_report 上报工具
     // 重复物化不产生重复行（版本戳相同 → 幂等；换版本重物化也按 includes 去重）
     const again = materializePreset({ memory: true, yuyi: true })
     expect(again.materialized).toBe(false)
