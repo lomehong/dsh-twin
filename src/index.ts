@@ -43,6 +43,7 @@ import {
   type LearningEvent,
   type LearningCandidate,
 } from './learning.ts'
+import { injectBoardGetter, renderActivitySection, type BoardActivityProvider } from './activity.ts'
 
 export const name = 'dsh-twin'
 export const provide = ['dsh-twin']
@@ -1435,6 +1436,17 @@ export function apply(ctx: Context): void {
       return false
     }
   }
+  // 活动感知数据源（主任拍板：看板 = 唯一活动权威；可选增强，宪章 §1 惰性解析）：
+  // dsh-task-board provide('dsh-task-board').activity()，twin 只做渲染者不做聚合。
+  // 缺席 → 活动区段整体降级为空（不影响人格/守卫段）。
+  injectBoardGetter(() => {
+    try {
+      return (ctx as unknown as { get(name: string): unknown }).get('dsh-task-board') as BoardActivityProvider | undefined
+    } catch {
+      return undefined
+    }
+  })
+
   try {
     const systemPrompt = (ctx as unknown as { systemPrompt?: SystemPromptLike }).systemPrompt
     if (systemPrompt && typeof systemPrompt.section === 'function') {
@@ -1462,6 +1474,22 @@ export function apply(ctx: Context): void {
         name: `${SECTION_NAME}-guard`,
         order: SECTION_ORDER + 1,
         text: (context: unknown) => (isTwin(context) ? GUARD_TEXT : ''),
+      })
+      // 活动感知段（主任拍板：看板 = 唯一活动权威；决策五）：
+      // 同步读看板活动缓存（tick 每 15s 刷新），主任问「在忙什么」时每轮自带全局视野。
+      // 访客完全不可见（拍板 3）；看板缺席/空闲 → 空串零成本。
+      systemPrompt.section({
+        name: `${SECTION_NAME}-activity`,
+        order: SECTION_ORDER + 2,
+        text: (context: unknown) => {
+          if (!isTwin(context)) return ''
+          const agentCtx = (context as { agent?: { ctx?: unknown } } | undefined)?.agent?.ctx
+          const actor = agentCtx ? actorByCtx.get(agentCtx as object) : undefined
+          let imInstalled = false
+          try { imInstalled = Boolean(ctx.get('im-channel')) } catch { imInstalled = false }
+          const guestView = resolveGuestView({ imChannelInstalled: imInstalled, actorIsMaster: actor?.isMaster })
+          return renderActivitySection({ guestView })
+        },
       })
     }
   } catch (error) {
