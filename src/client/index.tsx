@@ -79,7 +79,10 @@ function TwinSettingsPage() {
     try {
       const d = await api('/dsh-twin/config', 'GET')
       if (d.ok && d.config) {
-        setCfg({ ...emptyConfig, ...d.config })
+        // 「整个 dsh 就是一个数字分身」：全新向导（人格尚未配置）默认勾选
+        // 「设为默认预设」，让开箱即分身；已保存过的配置以用户选择为准。
+        const fresh = !d.config.hasPersona
+        setCfg({ ...emptyConfig, ...d.config, becomeDefaultPreset: d.config.becomeDefaultPreset ?? fresh })
         const t = d.config.template
         setToolHint(PRESETS.find((p) => p.id === t)?.toolHint ?? '')
       }
