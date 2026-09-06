@@ -17,6 +17,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { BUILT_IN_FIELDS, TONE_OPTIONS } from '../built-in-fields.ts'
+import { formatLocal } from './format'
 
 interface IdentityField { key: string; value: string; visibility: string; builtIn?: boolean }
 interface PolicyRule { id: string; when: string; act: string; escalate?: string; enabled: boolean }
@@ -398,7 +399,7 @@ function CardsPage() {
               <div style={s.rev}>
                 {history.slice().reverse().map((r) => (
                   <div key={r.revisionNo}>
-                    #{r.revisionNo} · {r.ts.slice(0, 19).replace('T', ' ')} ·{' '}
+                    #{r.revisionNo} · {formatLocal(r.ts, true)} ·{' '}
                     {r.confirmed && r.regressionPassed ? '已生效' : r.confirmed ? '候选（待回归）' : '候选（待确认）'}
                   </div>
                 ))}

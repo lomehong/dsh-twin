@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import { formatLocalDate } from './format'
 
 
 interface Profile {
@@ -91,7 +92,7 @@ export function ProfilesPage() {
                 <div key={o.memoryId} style={s.loop}>
                   <button style={s.loopBtn} onClick={() => void closeLoop(o.memoryId)}>标记闭环</button>
                   <span className="t">{o.content}</span>
-                  <span style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, marginLeft: 8 }}>{o.openedAt.slice(0, 10)}</span>
+                  <span style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, marginLeft: 8 }}>{formatLocalDate(o.openedAt)}</span>
                 </div>
               ))}
             </>
@@ -100,7 +101,7 @@ export function ProfilesPage() {
           {p.observations.length === 0 && <div style={{ ...s.item, color: 'var(--dsw-alias-label-tertiary)' }}>暂无</div>}
           {p.observations.map(o => (
             <div key={o.memoryId} style={s.item}>
-              <span style={s.ts}>{o.ts.slice(0, 10)}</span>
+              <span style={s.ts}>{formatLocalDate(o.ts)}</span>
               {o.kind === '推断' && <span style={s.inferred}>推断</span>}
               {o.content}
             </div>

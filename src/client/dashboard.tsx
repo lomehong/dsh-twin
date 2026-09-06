@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import { formatLocal, formatLocalDate } from './format'
 
 
 interface LedgerApproval {
@@ -307,7 +308,7 @@ export function DashboardPage() {
             <div key={c.id} style={s.item}>
               <span style={s.chip}>{c.kind}</span>
               <span style={s.itemText}>{String(c.payload.situation ?? c.payload.when ?? c.id)}</span>
-              <span style={s.itemMeta}>{c.createdAt.slice(0, 10)}</span>
+              <span style={s.itemMeta}>{formatLocalDate(c.createdAt)}</span>
             </div>
           ))}
         </>
@@ -347,7 +348,7 @@ export function DashboardPage() {
               通过 {d.regressions[0]!.passed}/{d.regressions[0]!.total}
               {d.regressions[0]!.passed === d.regressions[0]!.total ? ' · 全绿' : ' · 有失败'}
             </span>
-            <span style={s.itemMeta}>{d.regressions[0]!.at.slice(0, 16).replace('T', ' ')}</span>
+            <span style={s.itemMeta}>{formatLocal(d.regressions[0]!.at)}</span>
           </div>
         </>
       )}
