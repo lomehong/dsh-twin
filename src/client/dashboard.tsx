@@ -131,7 +131,7 @@ export function DashboardPage() {
   }, [])
   useEffect(() => { void load() }, [load])
 
-  const total = d.candidates.length + d.openLoops.length + d.pendingShadow.length + d.ledger.pendingApprovals
+  const total = d.candidates.length + d.openLoops.length + d.pendingShadow.length + d.ledger.pendingApprovals + d.pendingConfirm.length
 
   async function confirmAll() {
     if (d.candidates.length === 0) return
