@@ -19,17 +19,24 @@ interface LedgerApproval {
   expiresAt: string
 }
 
+interface BoardPendingConfirm {
+  id: string
+  title: string
+  summary?: string
+}
+
 interface DashboardData {
   candidates: Array<{ id: string; kind: string; payload: Record<string, unknown>; createdAt: string }>
   openLoops: Array<{ actorId: string; displayName?: string; memoryId: string; content: string; openedAt: string }>
   pendingShadow: Array<{ id: string; visitorInput: string }>
   ledger: { pendingApprovals: number; blocked: number; total: number }
   approvals: LedgerApproval[]
+  pendingConfirm: BoardPendingConfirm[]
   regressions: Array<{ id: string; at: string; total: number; passed: number }>
   reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }>
 }
 
-const EMPTY: DashboardData = { candidates: [], openLoops: [], pendingShadow: [], ledger: { pendingApprovals: 0, blocked: 0, total: 0 }, approvals: [], regressions: [], reaches: [] }
+const EMPTY: DashboardData = { candidates: [], openLoops: [], pendingShadow: [], ledger: { pendingApprovals: 0, blocked: 0, total: 0 }, approvals: [], pendingConfirm: [], regressions: [], reaches: [] }
 
 
 async function api<T>(path: string): Promise<T> {
@@ -76,7 +83,7 @@ export function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [learning, profiles, shadow, ledger, approvals, regressions, proactive] = await Promise.all([
+      const [learning, profiles, shadow, ledger, approvals, regressions, proactive, board] = await Promise.all([
         api<{ candidates: Array<{ id: string; kind: string; payload: Record<string, unknown>; createdAt: string }> }>('/dsh-twin/learning').catch(() => null),
         api<{ profiles: Array<{ entity: { id: string; displayName?: string }; openLoops: Array<{ memoryId: string; content: string; openedAt: string }> }> }>('/dsh-actors/profiles').catch(() => null),
         api<{ pairs: Array<{ id: string; visitorInput: string }> }>('/dsh-regression/shadow/pending').catch(() => null),
@@ -84,6 +91,7 @@ export function DashboardPage() {
         api<{ approvals: Array<LedgerApproval> }>('/dsh-ledger/approvals').catch(() => null),
         api<{ reports: Array<{ id: string; at: string; total: number; passed: number }> }>('/dsh-regression/reports').catch(() => null),
         api<{ reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }> }>('/dsh-twin/proactive').catch(() => null),
+        api<{ state?: { tasks?: Array<{ id: string; title: string; lastStatus?: string; runs?: Array<{ summary?: string }> }> } }>('/dsh-task-board/state').catch(() => null),
       ])
       setMissing({
         learning: learning === null,
@@ -91,7 +99,12 @@ export function DashboardPage() {
         shadow: shadow === null,
         ledger: ledger === null,
         regression: regressions === null,
+        board: board === null,
       })
+      // 待确认任务（主任拍板的验收语义：分身自报 ≠ 完成，主人确认才是）
+      const pendingConfirm = (board?.state?.tasks ?? [])
+        .filter(t => t.lastStatus === '待确认')
+        .map(t => ({ id: t.id, title: t.title, summary: t.runs?.[t.runs.length - 1]?.summary ?? '' }))
       const openLoops = (profiles?.profiles ?? []).flatMap(p =>
         (p.openLoops ?? []).map(o => ({ actorId: p.entity.id, displayName: p.entity.displayName, memoryId: o.memoryId, content: o.content, openedAt: o.openedAt })),
       )
@@ -105,6 +118,7 @@ export function DashboardPage() {
           total: ledger?.stats?.total ?? 0,
         },
         approvals: approvals?.approvals ?? [],
+        pendingConfirm,
         regressions: (regressions?.reports ?? []).slice(0, 1),
         reaches: (proactive?.reaches ?? []).slice(-8),
       })
@@ -182,6 +196,27 @@ export function DashboardPage() {
     }
   }
 
+  // 主任确认（验收语义：分身自报 ≠ 完成，主人确认才是完成）：确认/驳回自报结果，
+  // 确认后落定终态并沉淀记忆。
+  const confirmRun = async (taskId: string, approved: boolean): Promise<void> => {
+    setBusy(true)
+    try {
+      const resp = await fetch('/dsh-task-board/action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'confirm', id: taskId, approved }),
+      })
+      const payload = await resp.json() as { ok?: boolean; error?: string }
+      setMsg(payload.ok === true
+        ? (approved ? `已确认〈${taskId}〉完成——结果已沉淀记忆` : `已驳回〈${taskId}〉（记失败）`)
+        : `确认失败：${payload.error ?? '未知原因'}`)
+      await load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function closeLoop(memoryId: string) {
     await fetch('/dsh-memory/openloop/close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memoryId, via: '主人确认' }) })
     void load()
@@ -229,6 +264,20 @@ export function DashboardPage() {
               </span>
               <button style={s.btn} disabled={busy} onClick={() => void decide(a.id, true)}>批准</button>
               <button style={s.btnDanger} disabled={busy} onClick={() => void decide(a.id, false)}>驳回</button>
+            </div>
+          ))}
+        </>
+      )}
+
+      {d.pendingConfirm.length > 0 && (
+        <>
+          <div style={s.section}>待确认自报（{d.pendingConfirm.length}）——分身自报 ≠ 完成，主人确认才是完成</div>
+          {d.pendingConfirm.map(t => (
+            <div key={t.id} style={s.item}>
+              <span style={s.chip}>{t.id}</span>
+              <span style={s.itemText}>{t.title}{t.summary ? `：${t.summary}` : ''}</span>
+              <button style={s.btn} disabled={busy} onClick={() => void confirmRun(t.id, true)}>确认完成</button>
+              <button style={s.btnDanger} disabled={busy} onClick={() => void confirmRun(t.id, false)}>判定失败</button>
             </div>
           ))}
         </>
