@@ -4,7 +4,8 @@
  * 原「分身设置」人格 Tab 的九个固设置项，v2 人格合并后成为身份卡的固定字段：
  * 恒存在、不可删除、键不可改，只有值与可见性可编辑。可见性默认值与 legacy
  * renderPersona 行为对齐——背景/做事方式是主人私有事实（私密），其余是行为类
- * 准则或公开信息（全会话可见）。
+ * 准则或公开信息（全会话可见）。边界与转人工（escalation）v1.1 起默认
+ * 私密——防御/升级策略对访客保密（治理语义），主人可按字段改回公开。
  */
 
 export interface BuiltInFieldDef {
@@ -22,7 +23,7 @@ export const BUILT_IN_FIELDS: ReadonlyArray<BuiltInFieldDef> = [
   { key: 'style', label: '风格', visibility: '公开', control: 'textarea' },
   { key: 'values', label: '价值观', visibility: '公开', control: 'textarea' },
   { key: 'workingStyle', label: '做事方式', visibility: '私密', control: 'textarea' },
-  { key: 'escalation', label: '边界与转人工', visibility: '公开', control: 'textarea' },
+  { key: 'escalation', label: '边界与转人工', visibility: '私密', control: 'textarea' },
   { key: 'avoid', label: '禁忌', visibility: '公开', control: 'textarea' },
 ]
 

@@ -57,17 +57,17 @@ async function api(path: string, method: 'GET' | 'POST', body?: unknown): Promis
 
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { padding: '20px' },
+  wrap: { padding: '20px 20px 140px' },
   h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
   sub: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary)', margin: '0 0 16px 0' },
   secTitle: { fontSize: '14px', fontWeight: 700, margin: '18px 0 8px 0', color: 'var(--dsw-alias-label-primary)' },
   label: { display: 'block', fontSize: '12px', color: 'var(--dsw-alias-label-secondary)', margin: '6px 0 4px 0' },
-  input: { width: '100%', boxSizing: 'border-box', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' },
-  textarea: { width: '100%', boxSizing: 'border-box', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', minHeight: '60px', resize: 'vertical' },
-  select: { padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', marginRight: 8 },
+  input: { width: '100%', boxSizing: 'border-box', padding: '6px 10px', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: '4px', fontSize: '13px' },
+  textarea: { width: '100%', boxSizing: 'border-box', padding: '6px 10px', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: '4px', fontSize: '13px', minHeight: '60px', resize: 'vertical' },
+  select: { padding: '6px 10px', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: '4px', fontSize: '13px', marginRight: 8 },
   row: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' as const, marginTop: 8 },
   btn: { padding: '8px 18px', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-state-business-primary)', color: '#fff' },
-  ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)' },
+  ghost: { padding: '8px 18px', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)' },
   ok: { padding: '6px 14px', border: '1px solid #1d7a53', borderRadius: '4px', background: 'var(--dsw-alias-state-success-tertiary)', color: 'var(--dsw-alias-state-success-primary)', fontSize: '13px', cursor: 'pointer' },
   bad: { padding: '6px 14px', border: '1px solid #b03a44', borderRadius: '4px', background: 'var(--dsw-alias-interactive-bg-hover-danger)', color: 'var(--dsw-alias-state-error-primary)', fontSize: '13px', cursor: 'pointer' },
   hint: { fontSize: '12px', color: 'var(--dsw-alias-label-tertiary)', background: 'var(--dsw-alias-bg-layer-1)', border: '1px solid #eee', borderRadius: '6px', padding: '8px 10px', marginTop: 8 },

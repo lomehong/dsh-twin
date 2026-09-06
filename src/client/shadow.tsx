@@ -22,7 +22,7 @@ interface Stats {
 
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { padding: '20px' },
+  wrap: { padding: '20px 20px 140px' },
   h: { fontSize: '18px', fontWeight: 700, margin: '0 0 4px 0' },
   sub: { fontSize: '13px', color: 'var(--dsw-alias-label-secondary)', margin: '0 0 16px 0' },
   statsRow: { display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' as const },
@@ -37,10 +37,10 @@ const s: Record<string, React.CSSProperties> = {
   twinC: { background: 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent)' },
   tag: { fontSize: 11, fontWeight: 700, display: 'inline-block', marginBottom: 4 },
   btnRow: { display: 'flex', gap: 8 },
-  jbtn: { flex: 1, padding: '7px 0', border: '1px solid #ddd', borderRadius: 6, background: 'var(--dsw-alias-bg-layer-2)', fontSize: 12.5, cursor: 'pointer' },
-  input: { width: '100%', boxSizing: 'border-box' as const, padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, marginBottom: 8 },
+  jbtn: { flex: 1, padding: '7px 0', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 6, background: 'var(--dsw-alias-bg-layer-2)', fontSize: 12.5, cursor: 'pointer' },
+  input: { width: '100%', boxSizing: 'border-box' as const, padding: '6px 10px', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 4, fontSize: 13, marginBottom: 8 },
   btn: { padding: '8px 18px', border: 'none', borderRadius: 4, fontSize: 13, cursor: 'pointer', background: 'var(--dsw-alias-state-business-primary)', color: '#fff' },
-  ghost: { padding: '8px 18px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)' },
+  ghost: { padding: '8px 18px', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 4, fontSize: 13, cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)' },
   hint: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', background: 'var(--dsw-alias-bg-layer-1)', border: '1px solid #eee', borderRadius: 6, padding: '8px 10px', marginTop: 8 },
   empty: { fontSize: 13, color: 'var(--dsw-alias-label-tertiary)' },
 }
