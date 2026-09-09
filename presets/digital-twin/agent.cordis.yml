@@ -9,7 +9,9 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    text: >-
+    # 宿主 0.1.5-alpha.1 起 persona schema 要求 prefix（text 字段已废弃）——
+    # 对齐内置 standard 预设：prefix=身份陈述，可选 suffix=环境陈述
+    prefix: >-
       你是 {{model}} 驱动的数字分身。
 
 # 共享记忆工具：主人经「分身设置」写入的知识种子存在 dsh-memory。

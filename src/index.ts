@@ -432,7 +432,9 @@ export function renderPersona(cfg: Partial<TwinConfig>, { guestView = false }: {
 // v7：新增电脑操作能力——检测到 @dsh-extra/dsh-computer 已安装后自动追加 tool-computer 行。
 // v7→v8：可选依赖探测修复——link: 安装下 import.meta.url 指向源码仓库，resolve
 // 到不了安装位置平级包，导致已装 dsh-memory 却不追加 tool-memory 行。探测加安装布局兜底。
-const PRESET_VERSION = '9'
+// v9→v10：宿主 0.1.5-alpha.1 persona schema 收紧——config.text 废弃，要求
+// prefix（对齐内置 standard 预设）。物化模板 text: → prefix:，触发重新物化。
+const PRESET_VERSION = '10'
 
 /**
  * link: 安装（开发态）下 import.meta.url 指向源码仓库真实路径，node resolve
