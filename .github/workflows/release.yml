@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # 创建 GitHub Release 并上传 tarball
+
+# 纯 GitHub 分发，无需 npm 账号/org/token：tag 一推，CI 构建 + 审计 + 把 tarball
+# 挂到 GitHub Release。安装方一条命令直装（URL 在 Release 页面复制）：
+#   dsh plugin --profile web add https://github.com/<owner>/<repo>/releases/download/vX.Y.Z/<name>-X.Y.Z.tgz
+# dsh plugin 转发给 pnpm；装完宿主按包内 dsh.bundle 声明自动登记为 profile 层。
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # 打真实 tarball（--ignore-scripts：build/test 已在上面显式执行，别跑第二遍）
+      - run: npm pack --ignore-scripts
+      # 发布包审计 + tag 与 package.json version 一致性（不一致即拒绝发布）
+      - run: node scripts/audit-pack.mjs *.tgz --tag "${GITHUB_REF_NAME}"
+      # 固定名副本 → 安装 URL 恒为 .../releases/latest/download/dsh-twin-latest.tgz（免查版本号）
+      - run: cp dsh-extra-dsh-twin-*.tgz dsh-twin-latest.tgz
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: '*.tgz'

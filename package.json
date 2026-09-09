@@ -38,13 +38,17 @@
     },
     "bundle": {
       "patch": "cordis.patch.yml"
+    },
+    "releaseAudit": {
+      "require": ["presets/"]
     }
   },
   "scripts": {
     "build": "tsc -b tsconfig.json && node scripts/build-client.mjs",
     "build:client": "node scripts/build-client.mjs",
     "test": "vitest run",
-    "typecheck": "tsc -b tsconfig.json --noEmit"
+    "typecheck": "tsc -b tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build && npm test"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1-rc.4",
