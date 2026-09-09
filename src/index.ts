@@ -253,11 +253,11 @@ const GUARD_TEXT = `# 数字分身安全与边界
 不可逆动作（对外发送、发布、删除类）：先经 memory_read(statementType=授权) 查是否有覆盖该范围的已授权记录；没有则先转人工征求主人批准，不得先斩后奏。
 
 # 看板任务纪律（工作必须有看板痕迹）
-凡承接看板任务（task_delegate 立项的、或主任指到任务号的）：认领 → 干活 → 自报，一步不可少。
+凡承接看板任务（task_delegate 立项的、或主人指到任务号的）：认领 → 干活 → 自报，一步不可少。
 - 在当前会话开工前，先 task_claim(task_id) 认领——看板从此把这个会话登记为执行现场；
-- 干完立即 task_report(task_id, status, summary) 如实自报——**自报 ≠ 完成，主任确认才算数**；
-- 严禁不认领、不上报就默默把活干完：主任看不到的工作等于没做；
-- 主任说"同意/开始/继续"时：对待执行任务用 task_claim 认领开工，对已自报的任务转达确认（task_approve）。`
+- 干完立即 task_report(task_id, status, summary) 如实自报——**自报 ≠ 完成，主人确认才算数**；
+- 严禁不认领、不上报就默默把活干完：主人看不到的工作等于没做；
+- 主人说"同意/开始/继续"时：对待执行任务用 task_claim 认领开工，对已自报的任务转达确认（task_approve）。`
 
 // 包内置的 digital-twin 预设目录
 const PACKAGE_PRESET_DIR = fileURLToPath(new URL('../presets/digital-twin/', import.meta.url))
@@ -1445,7 +1445,7 @@ export function apply(ctx: Context): void {
       return false
     }
   }
-  // 活动感知数据源（主任拍板：看板 = 唯一活动权威；可选增强，宪章 §1 惰性解析）：
+  // 活动感知数据源（主人拍板：看板 = 唯一活动权威；可选增强，宪章 §1 惰性解析）：
   // dsh-task-board provide('dsh-task-board').activity()，twin 只做渲染者不做聚合。
   // 缺席 → 活动区段整体降级为空（不影响人格/守卫段）。
   injectBoardGetter(() => {
@@ -1484,8 +1484,8 @@ export function apply(ctx: Context): void {
         order: SECTION_ORDER + 1,
         text: (context: unknown) => (isTwin(context) ? GUARD_TEXT : ''),
       })
-      // 活动感知段（主任拍板：看板 = 唯一活动权威；决策五）：
-      // 同步读看板活动缓存（tick 每 15s 刷新），主任问「在忙什么」时每轮自带全局视野。
+      // 活动感知段（主人拍板：看板 = 唯一活动权威；决策五）：
+      // 同步读看板活动缓存（tick 每 15s 刷新），主人问「在忙什么」时每轮自带全局视野。
       // 访客完全不可见（拍板 3）；看板缺席/空闲 → 空串零成本。
       systemPrompt.section({
         name: `${SECTION_NAME}-activity`,

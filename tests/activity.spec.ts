@@ -1,6 +1,6 @@
 /**
- * 活动感知区段测试（主任拍板：看板 = 唯一活动权威）：
- * - 主任视图全量（任务执行现场 / 待审批 / 自由会话 / 最近完成）；
+ * 活动感知区段测试（主人拍板：看板 = 唯一活动权威）：
+ * - 主人视图全量（任务执行现场 / 待审批 / 自由会话 / 最近完成）；
  * - 访客完全不可见（拍板 3）；
  * - 看板缺席或空闲 → 空串零 token。
  */
@@ -28,7 +28,7 @@ describe('renderActivitySection', () => {
     expect(renderActivitySection({ guestView: false })).toBe('')
   })
 
-  it('主任视图：任务执行现场 / 自由会话 / 待审批 / 最近完成全量渲染', () => {
+  it('主人视图：任务执行现场 / 自由会话 / 待审批 / 最近完成全量渲染', () => {
     injectBoardGetter(() => boardWith({
       runningTasks: [{ taskId: 'TB-1', title: '周报汇总', sessionId: 'session-1' }],
       freeSessions: [{ sessionId: 'session-free', title: '自由现场' }],
@@ -39,7 +39,7 @@ describe('renderActivitySection', () => {
     expect(text).toContain('进行中任务 1 项')
     expect(text).toContain('〈周报汇总〉')
     expect(text).toContain('（执行会话运行中）')
-    expect(text).toContain('待主任审批 1 项')
+    expect(text).toContain('待主人审批 1 项')
     expect(text).toContain('自由会话 1 个（未归属任务）')
     expect(text).toContain('〈自由现场〉')
     expect(text).toContain('最近完成')

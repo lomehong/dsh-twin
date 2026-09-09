@@ -102,7 +102,7 @@ export function DashboardPage() {
         regression: regressions === null,
         board: board === null,
       })
-      // 待确认任务（主任拍板的验收语义：分身自报 ≠ 完成，主人确认才是）
+      // 待确认任务（主人拍板的验收语义：分身自报 ≠ 完成，主人确认才是）
       const pendingConfirm = (board?.state?.tasks ?? [])
         .filter(t => t.lastStatus === '待确认')
         .map(t => ({ id: t.id, title: t.title, summary: t.runs?.[t.runs.length - 1]?.summary ?? '' }))
@@ -171,7 +171,7 @@ export function DashboardPage() {
       if (approved) {
         const digest = payload.record?.target?.digest ?? ''
         const m = /TB-[A-Za-z0-9_-]+/.exec(digest)
-        // L-2：重跑失败必须让主任知道（§3.2 可感知），不能静默吞掉
+        // L-2：重跑失败必须让主人知道（§3.2 可感知），不能静默吞掉
         let rerunNote = ''
         if (m !== null) {
           try {
@@ -197,7 +197,7 @@ export function DashboardPage() {
     }
   }
 
-  // 主任确认（验收语义：分身自报 ≠ 完成，主人确认才是完成）：确认/驳回自报结果，
+  // 主人确认（验收语义：分身自报 ≠ 完成，主人确认才是完成）：确认/驳回自报结果，
   // 确认后落定终态并沉淀记忆。
   const confirmRun = async (taskId: string, approved: boolean): Promise<void> => {
     setBusy(true)
