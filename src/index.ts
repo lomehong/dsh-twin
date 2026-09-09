@@ -434,7 +434,9 @@ export function renderPersona(cfg: Partial<TwinConfig>, { guestView = false }: {
 // 到不了安装位置平级包，导致已装 dsh-memory 却不追加 tool-memory 行。探测加安装布局兜底。
 // v9→v10：宿主 0.1.5-alpha.1 persona schema 收紧——config.text 废弃，要求
 // prefix（对齐内置 standard 预设）。物化模板 text: → prefix:，触发重新物化。
-const PRESET_VERSION = '10'
+// v10→v11：架构师检查工具挂链——检测到 @dsh-extra/dsh-architect 已安装后
+// 自动追加 tool-architect 行（architect_digest/design/review，数字分身套件阶段 3 工具化）。
+const PRESET_VERSION = '11'
 
 /**
  * link: 安装（开发态）下 import.meta.url 指向源码仓库真实路径，node resolve
@@ -489,6 +491,8 @@ export interface OptionalDeps {
   computer: boolean
   /** dsh-task-board 在场时追加 task_report 上报工具行（宪章第二阶段挂链） */
   board?: boolean
+  /** dsh-architect 在场时追加架构师检查工具行（阶段 3 工具化挂链） */
+  architect?: boolean
 }
 
 /** @dsh-extra/dsh-task-board 是否已安装。决定是否追加 task_report 上报工具行。 */
@@ -501,8 +505,18 @@ function taskBoardAvailable(): boolean {
   }
 }
 
+/** @dsh-extra/dsh-architect 是否已安装。决定是否追加架构师检查工具行。 */
+function architectAvailable(): boolean {
+  try {
+    createRequire(import.meta.url).resolve('@dsh-extra/dsh-architect/package.json')
+    return true
+  } catch {
+    return installedInHome('@dsh-extra/dsh-architect')
+  }
+}
+
 function detectOptionalDeps(): OptionalDeps {
-  return { memory: memoryAvailable(), yuyi: yuyiAvailable(), computer: computerAvailable(), board: taskBoardAvailable() }
+  return { memory: memoryAvailable(), yuyi: yuyiAvailable(), computer: computerAvailable(), board: taskBoardAvailable(), architect: architectAvailable() }
 }
 
 /**
@@ -556,6 +570,12 @@ export function materializePreset(deps: OptionalDeps = detectOptionalDeps()): Ma
         id: 'tool-task-board',
         name: '@dsh-extra/dsh-task-board/tools',
         comment: '任务上报工具（dsh-twin 检测到 dsh-task-board 已安装，自动追加）：分身执行看板任务后经 task_report 结构化回报结果',
+      },
+      {
+        detect: deps.architect === true,
+        id: 'tool-architect',
+        name: '@dsh-extra/dsh-architect/tools',
+        comment: '架构师检查工具（dsh-twin 检测到 dsh-architect 已安装，自动追加）：需求准入六项覆盖/方案六维度自检/评审评分（architect_digest/design/review）',
       },
     ]
     const p = join(dir, 'agent.cordis.yml')
