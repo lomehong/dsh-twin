@@ -1,5 +1,5 @@
 schema: 1
-status: 待审核
+status: 已确认
 state_machines:
   - name: 四张卡生效门
     detail: 保存→归一化→修订快照（最近10）→status 候选/生效；生效=confirm+regressionPassed 双条件，缺一停留候选且旧生效卡继续渲染；空生效卡回落 legacy 渲染

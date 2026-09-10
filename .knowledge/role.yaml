@@ -2,7 +2,7 @@ service: dsh-twin
 domain: dsh-ecosystem
 role: 数字分身核心插件（@dsh-extra/dsh-twin）——插件=纯框架、人格=数据：物化 digital-twin agent 预设，经 systemPrompt 段注入人格/守卫/活动区段，四张卡存储与主/访客双视图投影，确认式学习闭环、主动触达与转人工
 schema: 1
-status: 待审核
+status: 已确认
 confirmed: 2026-09-10
 capabilities:
   - name: 预设物化到 $DSH_HOME/.agent-presets/digital-twin/（版本化幂等，PRESET_VERSION='11'）
