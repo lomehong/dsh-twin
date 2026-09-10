@@ -1,6 +1,6 @@
 {
   "name": "@dsh-extra/dsh-twin",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "V2：学习闭环（信号入队/证据门槛/确认/回归门禁）+ 样例候选池与规则挖掘 + 学习队列/关系档案/影子测试 Tab + assemble 关系摘要段",
   "license": "MIT",
   "type": "module",
