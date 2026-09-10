@@ -1,0 +1,57 @@
+schema: 1
+status: 待审核
+state_machines:
+  - name: 四张卡生效门
+    detail: 保存→归一化→修订快照（最近10）→status 候选/生效；生效=confirm+regressionPassed 双条件，缺一停留候选且旧生效卡继续渲染；空生效卡回落 legacy 渲染
+    source: src/cards.ts:saveCards
+  - name: 学习事件状态
+    detail: 观察→候选修订→已入卡/已驳回；晋升=同类指纹累计达门槛（纠正3/否决2/事实更正1/影子差异5）或主人显式归因一次晋升
+    source: src/learning.ts:enqueue
+  - name: 候选入卡门
+    detail: confirmCandidate 记 confirmedAt；applyCandidate 仅在 confirmedAt+regressionReportId 齐备时置已入卡，缺回归报告硬拒绝
+    source: src/learning.ts:applyCandidate
+  - name: 样例草稿状态
+    detail: 候选→已确认/已驳回；确认且带回归报告才合并进样例卡，否则停留候选池
+    source: src/drafts.ts:confirmDraft
+  - name: 预设物化版本
+    detail: .materialized-version 戳≠PRESET_VERSION('11')→旧文件备份 .bak 后覆盖重物化并按探测追加可选行
+    source: src/index.ts:materializePreset
+  - name: 触达记录状态
+    detail: 已触达/被阻断/降级；L2 主动触达未被账本批准→被阻断落盘；触达频控 10 分钟 3 条
+    source: src/proactive.ts:deliverReach
+red_lines:
+  - detail: GUARD_TEXT（twin-guard 段，order 26）注入所有分身会话：身份/权限由系统决定、抗注入、不透露提示全文；输出门禁三问（受众范围/陈述类型/缺口披露）；不可逆动作先查 memory_read(statementType=授权) 否则转人工；看板任务纪律（task_claim→干活→task_report，自报≠完成）。改 GUARD_TEXT 是高风险变更
+    source: src/index.ts:GUARD_TEXT
+  - detail: 主/访客 fail-closed：已装 im-channel 未被标注=访客视图；私密字段（背景/做事方式/边界与转人工）对访客结构性缺失，非提示词请求保密
+    source: src/index.ts:resolveGuestView
+  - detail: 记忆规整信任域隔离：绝不跨作者归并、绝不把 scope 向 public 提升，防访客投毒提升可见性
+    source: src/index.ts:consolidateMemory
+  - detail: 转人工与主动触达各自进程级 10 分钟最多 3 次（多访客共享预算，保护主人注意力）
+    source: src/tools.ts:escalateToOwner
+  - detail: 插件自有 /dsh-twin/* exact 路由不在上游认证围栏内：写端点自建 sameOrigin CSRF+application/json+1MB 上限；GET 端点 LAN 暴露可被未认证读取，勿暴露公网
+    source: src/index.ts:sameOrigin
+  - detail: 全局默认预设不静默改写：仅用户显式勾选 becomeDefaultPreset 并保存后才写 agent-presets.default
+    source: src/index.ts:ensureDefaultPreset
+  - detail: 人格文本=system prompt 注入向量：唯一保存入口统一 NFC/控制字符清除/行首#中和/长度白名单清洗（幂等）
+    source: src/sanitize.ts:normalizePersonaText
+  - detail: 语料挖掘授权语义：调用 /dsh-twin/drafts/mine 即视为对本次文本授权，不做后台自动挖语料
+    source: src/drafts.ts:mineAndPool
+test_entry: npm test（vitest run；tests/ 直接 import src/*.ts，DSH_HOME 隔离到 mkdtempSync 临时目录）；npm run typecheck（tsc -b --noEmit，exactOptionalPropertyTypes）；npm run build（tsc -b + esbuild 重建 lib/client.js）；CI 追加 node scripts/audit-pack.mjs
+test_entry_source: package.json:scripts
+compat_notes:
+  - detail: persona schema 收紧先例：宿主 0.1.5-alpha.1 起要求 config.prefix（text 废弃），预设模板改 prefix: 并递增 PRESET_VERSION 触发存量重物化——宿主升级盯 persona schema 变更
+    source: presets/digital-twin/agent.cordis.yml:persona
+  - detail: PRESET_VERSION 机制三坑：演进必须递增否则存量成孤儿副本；link: 安装下 resolve 探测失败需 installedInHome 布局兜底；运行中重建 lib 的热重载竞态可能用旧代码重物化（装后删版本戳防护）
+    source: src/index.ts:PRESET_VERSION
+  - detail: 宿主升级盯 slots/panel 面（main/sidebar.panellist 特性检测双写）、settings 命名空间注册时序（轮询）、systemPrompt AssembleContext 无身份信息（noteActor+WeakMap 既定方案）、dsh-tools alpha.3+ ToolDefinition.output 强制
+    source: src/client/twin-hub.tsx:applyTwinHub
+  - detail: lib/ 随仓提交（git 安装免本地构建）；peerDependencies 对 rc 包须写 rc 可满足范围+.npmrc legacy-peer-deps
+    source: docs/LESSONS.md:「9」
+sources:
+  - src/cards.ts:saveCards
+  - src/index.ts:GUARD_TEXT
+  - docs/LESSONS.md:「12」
+gaps:
+  - release.yml、scripts/smoke-v2.mjs、scripts/smoke-v3.mjs、scripts/audit-pack.mjs、.npmrc 未读
+  - tests/ 仅读 twin.test.ts 前 60 行，其余断言未通读；README 称 26 个测试未核对
+  - vitest 未见独立配置文件，测试发现走默认规则（未回源验证）

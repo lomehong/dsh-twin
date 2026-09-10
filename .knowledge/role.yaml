@@ -1,0 +1,43 @@
+service: dsh-twin
+domain: dsh-ecosystem
+role: 数字分身核心插件（@dsh-extra/dsh-twin）——插件=纯框架、人格=数据：物化 digital-twin agent 预设，经 systemPrompt 段注入人格/守卫/活动区段，四张卡存储与主/访客双视图投影，确认式学习闭环、主动触达与转人工
+schema: 1
+status: 待审核
+confirmed: 2026-09-10
+capabilities:
+  - name: 预设物化到 $DSH_HOME/.agent-presets/digital-twin/（版本化幂等，PRESET_VERSION='11'）
+    source: src/index.ts:materializePreset
+  - name: 可选依赖工具行条件装配（memory/yuyi/computer/task-board/architect 探测到才追加）
+    source: src/index.ts:detectOptionalDeps
+  - name: 人格(twin)/守卫(twin-guard)/活动(twin-activity)三段注入，仅 digital-twin 预设组合的 agent 生效
+    source: src/index.ts:apply
+  - name: 主/访客双视图 fail-closed 判定（装 im-channel 未标注=访客）
+    source: src/index.ts:resolveGuestView
+  - name: 四张卡（身份/策略/样例/状态）存储，生效=主人确认+回归通过双条件
+    source: src/cards.ts:saveCards
+  - name: 纯函数投影：私密字段对访客结构性缺失、样例最多 6 条、状态卡按 decayAt 衰减
+    source: src/projection.ts:renderCards
+  - name: 学习闭环：信号入队/指纹聚合/证据门槛/主人确认/回归门禁/入卡
+    source: src/learning.ts:enqueue
+  - name: 样例候选池与规则式语料挖掘（拒绝边界/承诺措辞/澄清确认）
+    source: src/drafts.ts:mineAndPool
+  - name: 状态卡汇入与主动触达调度（账本过闸+频控+IM 送达）
+    source: src/proactive.ts:tick
+  - name: 转人工工具 escalate_to_owner（IM 推送主人绑定，10 分钟 3 次频控）
+    source: src/tools.ts:escalateToOwner
+  - name: 看板活动区段渲染（读 dsh-task-board activity 缓存，访客不可见，空闲零成本）
+    source: src/activity.ts:renderActivitySection
+  - name: 知识种子写入 dsh-memory（按内容去重）+ 记忆规整（同作者替代链去重）
+    source: src/index.ts:seedMemory
+  - name: 人格文本入口归一化（NFC/控制字符/行首#中和/长度上限，防提示注入最后防线）
+    source: src/sanitize.ts:normalizePersonaText
+sources:
+  - src/index.ts:apply
+  - src/cards.ts:saveCards
+  - src/learning.ts:enqueue
+  - src/tools.ts:apply
+  - README.md:分层
+gaps:
+  - src/client/ 各 .tsx 仅读头部与 fetch 调用清单，未逐行通读
+  - README.md 描述 v0.3.0 与 package.json 0.4.1 漂移；README「不挂 shell/fs」与 agent.cordis.yml 现状矛盾，以代码为准
+  - cordis 'timer' 事件在宿主侧的精确语义未回源宿主仓（本仓以结构化转义消费）

@@ -1,0 +1,51 @@
+schema: 1
+status: 待审核
+services:
+  - name: dsh-twin
+    kind: cordis-service
+    summary: 宿主端服务（provide=['dsh-twin']）：loadConfig/saveConfig/renderPersona/seedMemory/consolidateMemory/stats/monitor/history/restoreHistory/defaultConfig/materializePreset/ensureDefaultPreset/preview/presetId；noteActor(agentCtx,{isMaster}) 标注主/访客；enqueueLearning/learningQueue 供学习闭环软依赖调用
+    source: src/index.ts:TwinService
+  - name: escalate_to_owner
+    kind: model-tool
+    summary: 转人工工具，由预设行 '@dsh-extra/dsh-twin/tools' 注册；经 im-channel pushToUser 推送主人绑定（跨渠道去重上限 3），失败降级为结构化错误不炸会话
+    source: src/tools.ts:apply
+  - name: /dsh-twin/config、/history、/history/restore、/stats、/monitor、/preview
+    kind: http
+    summary: 设置页读写（POST 保存即种子入库+可选默认预设接管）、版本快照与恢复、统计、运行监控（含 modelFailoverInstalled 探测位）、人格+守卫注入预览；写端点 sameOrigin CSRF+强制 JSON+1MB 上限
+    source: src/index.ts:registerApi
+  - name: /dsh-twin/cards、/dsh-twin/cards/preview
+    kind: http
+    summary: 四张卡读写（POST 支持 migrate=true legacy 迁移；生效双条件在 cards 层判定）与主/访客双视图完整投影预览
+    source: src/index.ts:registerApi
+  - name: /dsh-twin/learning*、/dsh-twin/drafts*
+    kind: http
+    summary: 学习闭环（列表/enqueue/confirm/reject/apply）与样例候选池（列表/mine/confirm/reject）；POST 均走 sameOrigin+JSON
+    source: src/index.ts:registerLearningApi
+  - name: /dsh-twin/proactive*
+    kind: http
+    summary: 触达记录查询/候选预览/手动 tick（手动 tick 只预览不发送，真实发送由宿主 timer 执行）
+    source: src/index.ts:registerProactiveApi
+  - name: timer
+    kind: event
+    summary: 监听的宿主 ctx 事件（结构化转义挂接）：清理过期状态卡→汇入记忆开环种子→生成触达候选→过闸送达
+    source: src/index.ts:apply
+  - name: digital-twin
+    kind: preset
+    summary: 内置 agent 预设（preset.yml+agent.cordis.yml）物化到 $DSH_HOME/.agent-presets/digital-twin/；persona 行用 config.prefix（宿主 0.1.5-alpha.1 起 text 废弃）；可选行物化时按包探测追加（tool-memory/tool-yuyi/tool-computer/tool-task-board/tool-architect）
+    source: presets/digital-twin/agent.cordis.yml:persona
+  - name: 分身设置（settings.section id=twin，order 25）
+    kind: client-panel
+    summary: 顶级设置向导：模板一键生成候选人格卡、知识种子编辑与 .txt/.md 导入、人格卡导入导出、预览注入内容
+    source: src/client/index.tsx:apply
+  - name: 数字分身（conversation.view id=twin-hub，order 19）
+    kind: client-panel
+    summary: 主面板六子页（今日待办/学习队列/关系档案/影子测试/监控/人格卡）；特性检测双写挂 main 与 sidebar.panellist 全局面板
+    source: src/client/twin-hub.tsx:applyTwinHub
+sources:
+  - src/index.ts:GUARD_TEXT
+  - src/index.ts:PRESET_VERSION
+  - cordis.patch.yml:insert
+gaps:
+  - 线索核实：noteActor/seedMemory/enqueueLearning 均在 TwinService 实现；GUARD_TEXT 位于 src/index.ts L241-260（每轮注入所有分身会话的 twin-guard 段）；PRESET_VERSION='11' 以代码为准
+  - TwinService.noteActor 注释「未标注=主人视图」与 resolveGuestView 的 fail-closed 实现矛盾，以实现为准
+  - client dashboard/learning/profiles/shadow/monitor/cards 仅读头部与 fetch 清单，内部交互未逐行通读

@@ -1,0 +1,76 @@
+schema: 1
+status: 待审核
+consumes:
+  - name: dsh-memory
+    kind: cordis-service
+    degradation: 缺席→知识种子不落库、记忆规整不可用、开环状态源为空（软降级不阻断）
+    source: src/index.ts:seedMemory
+  - name: im-channel（仓 dsh-im-bot）
+    kind: cordis-service
+    degradation: 缺席→纯网页部署按主人视图；转人工返回明确错误；主动触达降级记录；在位但会话未标注→访客视图（fail-closed）
+    source: src/index.ts:resolveGuestView
+  - name: dsh-ledger
+    kind: cordis-service
+    degradation: 缺席→deliverReach 不执行 check、触达继续经 IM 投递（跳过闸门）；候选生成无待批项
+    source: src/proactive.ts:deliverReach
+  - name: dsh-task-board
+    kind: cordis-service
+    degradation: 缺席→twin-activity 区段整体降级为空串（人格/守卫段不受影响）
+    source: src/activity.ts:renderActivitySection
+  - name: sessions+sessionProjections
+    kind: cordis-service
+    degradation: 缺席→/dsh-twin/monitor 各项归零，不报错
+    source: src/index.ts:collectMonitor
+  - name: settings（agent-presets 命名空间）
+    kind: cordis-service
+    degradation: 命名空间未注册→轮询约 10 秒后放弃并留日志；写失败不致命
+    source: src/index.ts:ensureDefaultPreset
+  - name: agentPresets
+    kind: cordis-service
+    degradation: 缺席/异常→isTwin 判 false，人格/守卫/活动段全部不注入
+    source: src/index.ts:apply
+  - name: systemPrompt
+    kind: cordis-service
+    degradation: 缺席→跳过段注册（try/catch 包裹，不阻断其余功能）
+    source: src/index.ts:apply
+  - name: webServer
+    kind: cordis-service
+    degradation: 非硬依赖（ctx.inject 延迟）；缺席→全部 /dsh-twin/* 路由不注册
+    source: src/index.ts:apply
+  - name: timer（宿主 ctx 事件）
+    kind: event
+    degradation: 宿主无此事件面→跳过定时触达，路由手动 tick 仍可用
+    source: src/index.ts:apply
+  - name: dsh-regression
+    kind: http
+    degradation: 客户端软依赖：/dsh-regression/shadow/*、/dsh-regression/run；缺席→影子页空态、回归报告无法回填
+    source: src/client/shadow.tsx:ShadowPage
+  - name: dsh-actors
+    kind: http
+    degradation: 客户端软依赖：/dsh-actors/profiles；缺席→关系档案空态
+    source: src/client/profiles.tsx:ProfilesPage
+  - name: dsh-ledger/dsh-task-board/dsh-memory 客户端动作端点
+    kind: http
+    degradation: /dsh-ledger/approve、/dsh-ledger/reject、/dsh-task-board/action、/dsh-memory/openloop/close；缺席→对应按钮失败不崩面板
+    source: src/client/dashboard.tsx:DashboardPage
+  - name: dsh-model-failover
+    kind: http
+    degradation: 宿主 installedInHome 探测后客户端才请求 /model-failover/api/status；缺席→显式一行降级不发投机请求
+    source: src/index.ts:registerApi
+  - name: 预设可选行包（@dsh-extra/dsh-memory/tools、dsh-yuyi/tools、@dsh-extra/dsh-computer/tools、@dsh-extra/dsh-task-board/tools、@dsh-extra/dsh-architect/tools）
+    kind: preset
+    degradation: 未安装→不追加对应工具行，预设仍可挂载（行写死会使整份组合不可挂载）
+    source: src/index.ts:materializePreset
+consumed_by:
+  - name: dsh-im-bot(im-channel)
+    source: dsh-im-bot/im-channel/src/plugin/driver.ts:noteActor（软依赖，agent setup 标注主/访客，缺席静默跳过）
+  - name: dsh-ledger
+    source: dsh-ledger/src/index.ts:enqueueLearning（L362-367 否决信号软依赖入队，缺失静默跳过）
+sources:
+  - src/index.ts:MemoryServiceLike
+  - src/proactive.ts:LedgerLike
+  - src/tools.ts:ImChannelLike
+gaps:
+  - dsh-ledger 调用上下文仅读 grep 片段 L362-367，未通读其仓
+  - proactive.ts deliverReach 注释「过闸失败宁可降级不直发」与实现（账本缺席继续投递）不一致，以实现为准
+  - dsh-task-board 仅为本仓消费其 activity()（方向相反），未见其消费 dsh-twin 服务的调用点
