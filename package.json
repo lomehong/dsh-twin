@@ -40,7 +40,9 @@
       "patch": "cordis.patch.yml"
     },
     "releaseAudit": {
-      "require": ["presets/"]
+      "require": [
+        "presets/"
+      ]
     }
   },
   "scripts": {
