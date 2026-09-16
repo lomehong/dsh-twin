@@ -68,6 +68,8 @@ export interface OptionalDeps {
     computer: boolean;
     /** dsh-task-board 在场时追加 task_report 上报工具行（宪章第二阶段挂链） */
     board?: boolean;
+    /** dsh-architect 在场时追加架构师检查工具行（阶段 3 工具化挂链） */
+    architect?: boolean;
 }
 /**
  * 把内置预设物化到用户 agent-presets 根（版本化幂等）。返回是否本次写入。

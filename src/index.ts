@@ -436,7 +436,10 @@ export function renderPersona(cfg: Partial<TwinConfig>, { guestView = false }: {
 // prefix（对齐内置 standard 预设）。物化模板 text: → prefix:，触发重新物化。
 // v10→v11：架构师检查工具挂链——检测到 @dsh-extra/dsh-architect 已安装后
 // 自动追加 tool-architect 行（architect_digest/design/review，数字分身套件阶段 3 工具化）。
-const PRESET_VERSION = '11'
+// v11→v12：dsh 0.1.6 基线对齐——模板补 present 行（shipped standard 新增交付物呈现）；
+// tool-ralph 对齐 shipped 默认 disabled（完成是 worker 自报、非独立评估，需要时删 disabled 恢复）。
+// 模板变更必须 bump 本版本戳，否则已物化副本不会被重写（2026-09-16 architect 预设事故教训）。
+const PRESET_VERSION = '12'
 
 /**
  * link: 安装（开发态）下 import.meta.url 指向源码仓库真实路径，node resolve
