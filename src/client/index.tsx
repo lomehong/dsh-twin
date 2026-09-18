@@ -1,29 +1,34 @@
 /**
  * dsh-twin 设置向导（客户端）
  *
- * 注册为顶级设置 Tab（settings.section，id=twin）：模板 / 知识（分身初始化与数据管理），支持导入导出人格卡。人格编辑入口与运行监控在数字分身 Tab。
+ * 注册到「插件」管理页本插件的配置区（plugins.bundle.config，key=包名）：模板 / 知识（分身初始化与数据管理），支持导入导出人格卡。人格编辑入口与运行监控在数字分身 Tab。
  * 通过 /dsh-twin/config 读写；人格由宿主端注入 system prompt，知识写入 dsh-memory。
  * 插件=纯框架，人格=数据（twin-config.json），可导入导出随身携带。
- * 本 Tab 只承担初始配置（向导性质）；日常运营（修订确认/人格卡/学习队列）在主对话窗口「数字分身」Tab。
+ * 本页只承担初始配置（向导性质）；日常运营（修订确认/人格卡/学习队列）在主对话窗口「数字分身」Tab。
  */
 import { useState, useEffect, useCallback } from 'react'
 import { applyTwinHub } from './twin-hub.tsx'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 
 export const inject = ['slots']
 
 export function apply(ctx: ClientContext): void {
-  ctx.slots.inject('settings.section', () =>
+  ctx.slots.inject('plugins.bundle.config', () =>
     ctx.slots.register(
       {
-        name: 'settings.section',
-        id: 'twin',
-        order: 25,
-        label: () => '分身设置',
+        name: 'plugins.bundle.config',
+        key: '@dsh-extra/dsh-twin',
       },
-      TwinSettingsPage,
+      (props: { view: 'summary' | 'page' }) =>
+        props.view === 'page' ? (
+          <TwinSettingsPage />
+        ) : (
+          <span style={{ fontSize: 12, color: 'var(--dsw-alias-label-secondary)' }}>
+            分身人格经四张卡投影注入各会话；此处管理模板 / 知识种子 / 人格卡导入导出，日常运营在会话「数字分身」Tab。
+          </span>
+        ),
     ),
   )
   // v2/v3：数字分身主面板（单一 conversation.view slot，内含今日待办/学习队列/关系档案/影子测试/人格卡）
@@ -44,7 +49,7 @@ interface CardsState {
 
 /** 模板预设：生成初版人格卡（内置字段）+ 建议知识种子 */
 const PRESETS = [
-  { id: 'custom', label: '自定义', desc: '生成空白人格卡，到人格卡逐项填写。', toolHint: '自定义角色：请按需在「手机连接 → 访客权限」开放工具。', fields: {} as Record<string, string>, seeds: [] as string[] },
+  { id: 'custom', label: '自定义', desc: '生成空白人格卡，到人格卡逐项填写。', toolHint: '自定义角色：请按需在「插件页 → IM 渠道 → 访客权限」开放工具。', fields: {} as Record<string, string>, seeds: [] as string[] },
   { id: 'assistant', label: '私人助理', desc: '替我安排日程、整理信息、处理琐事。', toolHint: '私人助理建议：访客常开 `web*`、`todo*`（联网搜索/任务清单）。', fields: { role: '私人助理', background: '我的日常助理，帮我安排日程、整理信息、处理琐事。', tone: '亲切', style: '主动、贴心，替我把事情安排好。', values: '以主人利益为先，靠谱、主动。', workingStyle: '先听清需求再行动；能代办的代办，不确定的先确认。', escalation: '涉及金钱、对外承诺、对外发布内容时转主人。', avoid: '不擅自对外承诺、不替主人做主决定。' }, seeds: ['主人的日程与偏好以最近对话为准。'] },
   { id: 'expert', label: '专家顾问', desc: '在擅长领域提供有依据的分析与建议。', toolHint: '专家顾问建议：访客常开 `web*`（联网检索）。', fields: { role: '领域专家顾问', background: '在我擅长的领域提供专业、有依据的分析与建议。', tone: '专业', style: '严谨、条理清晰，先给结论再给依据。', values: '诚实、有据，不编造。', workingStyle: '先给结论再讲依据；明确标出不确定的地方。', escalation: '未掌握的事实要如实说明，并给出进一步查证方向。', avoid: '不臆测、不夸大。' }, seeds: ['我的分析基于可靠来源，结论会给出依据。'] },
   { id: 'service', label: '客服分身', desc: '解答常见问题、指引流程、转达诉求。', toolHint: '客服分身建议：访客默认纯对话即可，一般无需开放工具。', fields: { role: '客户服务', background: '负责解答客户常见问题、指引流程、转达诉求。', tone: '亲切', style: '礼貌、耐心，用简单直白的语言。', values: '耐心、礼貌，不与客户起冲突。', workingStyle: '先共情、再解答；自己解决不了就转人工。', escalation: '投诉、退换货、超出权限的事项转人工处理。', avoid: '不承诺做不到的事、不与客户争执。' }, seeds: ['常见问题优先给出简短、可执行的解决路径。'] },
@@ -340,7 +345,7 @@ function TwinSettingsPage() {
       </label>
       {cfg.becomeDefaultPreset === true && (
         <div style={{ ...s.hint, color: 'var(--dsw-alias-state-success-primary)' }}>
-          ✓ 数字分身预设已包含全部工具（shell / 文件系统 / 电脑操作 / 联网等）。勾选后所有新会话都以你的分身身份工作：人格、记忆、工具完全一致。访客会话仍按访客权限白名单受限，不受影响。
+          ✓ 数字分身预设已包含全部工具（shell / 文件系统 / 联网等）。勾选后所有新会话都以你的分身身份工作：人格、记忆、工具完全一致。访客会话仍按访客权限白名单受限，不受影响。
         </div>
       )}
 

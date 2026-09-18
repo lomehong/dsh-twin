@@ -8,7 +8,7 @@
 > 时回落，迁移走 `POST /dsh-twin/cards`（migrate=true）。
 
 一个把「数字分身」收敛成**单个可拔插插件包**的方案：装到任意 DSH 上即出现数字分身
-（`digital-twin` agent 预设），人格/知识通过顶级「分身设置」向导配置，可导入导出随身携带。
+（`digital-twin` agent 预设），人格/知识通过「插件」管理页本插件的配置区配置，可导入导出随身携带。
 
 插件=纯框架，人格=数据。
 
@@ -30,7 +30,7 @@
 - **可移植**：插件是纯代码；人格是数据，打包进 `$DSH_HOME/dsh-twin/twin-config.json`，
   向导提供「导出人格 / 导入人格」，换电脑装插件→导入即可。
 - **默认预设为显式选择**：安装**不会**改写全局默认（v0.1.x 的旧行为会让主人日常
-  会话静默失去 shell/fs 工具）。「分身设置」勾选「设为默认预设」并保存后，才把
+  会话静默失去 shell/fs 工具）。在「插件」页本插件配置区勾选「设为默认预设」并保存后，才把
   `agent-presets.default` 设为 `digital-twin`（仍尊重用户手动选择的其它预设）。
   更推荐在 settings.yaml 的 `im-channel:` 节配置 `agentPreset: digital-twin`，
   把 IM 侧人格与全局默认解耦。
@@ -70,9 +70,9 @@ dsh plugin --profile web add git+https://github.com/lomehong/dsh-twin.git   # �
 
 1. 物化 `digital-twin` 预设到 `$DSH_HOME/.agent-presets/digital-twin/`（版本化幂等；
    dsh-memory / dsh-yuyi 的工具行检测到已安装才追加）；
-2. 顶级「设置」出现「**分身设置**」Tab；
+2. 「插件」管理页出现本插件的**配置区**（模板 / 知识 / 导入导出）；
 3. Agent 预设挑选器多出「**数字分身**」模式；
-4. 全局默认预设**不会被自动改写**——需要时在「分身设置」勾选「设为默认预设」，
+4. 全局默认预设**不会被自动改写**——需要时在插件配置区勾选「设为默认预设」，
    或在 settings.yaml 的 `im-channel:` 节配置 `agentPreset: digital-twin`。
 
 ## 使用
