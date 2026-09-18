@@ -31,11 +31,11 @@ services:
     source: src/index.ts:apply
   - name: digital-twin
     kind: preset
-    summary: 内置 agent 预设（preset.yml+agent.cordis.yml）物化到 $DSH_HOME/.agent-presets/digital-twin/；persona 行用 config.prefix（宿主 0.1.5-alpha.1 起 text 废弃）；可选行物化时按包探测追加（tool-memory/tool-yuyi/tool-computer/tool-task-board/tool-architect）
+    summary: 内置 agent 预设（preset.yml+agent.cordis.yml）物化到 $DSH_HOME/.agent-presets/digital-twin/；persona 行用 config.prefix（宿主 0.1.5-alpha.1 起 text 废弃）；可选行物化时按包探测追加（tool-memory/tool-yuyi/tool-task-board/tool-architect）
     source: presets/digital-twin/agent.cordis.yml:persona
-  - name: 分身设置（settings.section id=twin，order 25）
+  - name: 分身设置（plugins.bundle.config key=@dsh-extra/dsh-twin）
     kind: client-panel
-    summary: 顶级设置向导：模板一键生成候选人格卡、知识种子编辑与 .txt/.md 导入、人格卡导入导出、预览注入内容
+    summary: 「插件」管理页本插件配置区（summary 一行简介 + page 完整向导）：模板一键生成候选人格卡、知识种子编辑与 .txt/.md 导入、人格卡导入导出、预览注入内容
     source: src/client/index.tsx:apply
   - name: 数字分身（conversation.view id=twin-hub，order 19）
     kind: client-panel
@@ -46,6 +46,6 @@ sources:
   - src/index.ts:PRESET_VERSION
   - cordis.patch.yml:insert
 gaps:
-  - 线索核实：noteActor/seedMemory/enqueueLearning 均在 TwinService 实现；GUARD_TEXT 位于 src/index.ts L241-260（每轮注入所有分身会话的 twin-guard 段）；PRESET_VERSION='11' 以代码为准
+  - 线索核实：noteActor/seedMemory/enqueueLearning 均在 TwinService 实现；GUARD_TEXT 位于 src/index.ts L241-260（每轮注入所有分身会话的 twin-guard 段）；PRESET_VERSION='12' 以代码为准
   - TwinService.noteActor 注释「未标注=主人视图」与 resolveGuestView 的 fail-closed 实现矛盾，以实现为准
   - client dashboard/learning/profiles/shadow/monitor/cards 仅读头部与 fetch 清单，内部交互未逐行通读

@@ -3,7 +3,7 @@
 **定位**：把「数字分身」收敛成单个可拔插、可移植的 cordis 插件包——插件=纯框架，人格=数据；人格经四张卡投影注入 system prompt，知识种子写入 dsh-memory。
 
 **结构速览**：
-- `src/`：宿主端 TypeScript——`index.ts`（预设物化 / twin·twin-guard·twin-activity 三段注入 / dsh-twin 服务与 /dsh-twin/* 路由 / timer 调度）、`cards.ts`（四张卡）、`projection.ts`（纯函数双视图投影）、`learning.ts`（学习闭环）、`drafts.ts`（样例候选池）、`proactive.ts`（状态卡汇入+主动触达）、`tools.ts`（escalate_to_owner）、`activity.ts`（看板活动区段）、`sanitize.ts`+`built-in-fields.ts`（归一化/内置身份字段）；`src/client/`：分身设置向导与「数字分身」主面板（tsx）。
+- `src/`：宿主端 TypeScript——`index.ts`（预设物化 / twin·twin-guard·twin-activity 三段注入 / dsh-twin 服务与 /dsh-twin/* 路由 / timer 调度）、`cards.ts`（四张卡）、`projection.ts`（纯函数双视图投影）、`learning.ts`（学习闭环）、`drafts.ts`（样例候选池）、`proactive.ts`（状态卡汇入+主动触达）、`tools.ts`（escalate_to_owner）、`activity.ts`（看板活动区段）、`sanitize.ts`+`built-in-fields.ts`（归一化/内置身份字段）；`src/client/`：分身设置向导（「插件」管理页配置区，plugins.bundle.config）与「数字分身」主面板（tsx）。
 - `presets/digital-twin/`：内置 agent 预设（agent.cordis.yml+preset.yml），首启版本化物化到 `$DSH_HOME/.agent-presets/digital-twin/`，可选依赖工具行探测到已安装才追加。
 
 **.knowledge/ 索引**：
