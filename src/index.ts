@@ -1583,6 +1583,7 @@ export function apply(ctx: Context): void {
   // 5) v3 主动触达调度器：定期 tick（状态卡汇入 → 候选 → 过闸 → 送达）+ 过期清理
   try {
     // cordis Context 未声明 'timer' 事件：用结构化视图转义，宿主提供才挂接
+    let reachHandoverLogged = false // D4 主动源让位的移交日志只打一次
     const ctxEvents = ctx as unknown as { on?: (event: string, handler: () => void) => unknown }
     ctxEvents.on?.('timer', () => {
       void (async () => {
@@ -1600,6 +1601,18 @@ export function apply(ctx: Context): void {
             }
           }
           ingestStateSeeds(seeds)
+
+          // D4 主动源让位：dsh-mind 在场时，主动触达由心智的 share 函数接管
+          // （消除双主动源）；状态卡汇入照旧。dsh-mind 缺席 → 本路径照常。
+          let mindOwnsReach = false
+          try { mindOwnsReach = ctx.get('dsh-mind') !== undefined } catch { /* 惰性探测失败按缺席 */ }
+          if (mindOwnsReach) {
+            if (!reachHandoverLogged) {
+              reachHandoverLogged = true
+              ctx.logger?.info?.('[dsh-twin] 检测到 dsh-mind：主动触达移交心智 share 函数（本调度显式让位）')
+            }
+            return
+          }
 
           // 主动触达：生成候选 → 过闸送达（im-channel 软依赖）
           const ledgerSvc = ctx.get('dsh-ledger') as
