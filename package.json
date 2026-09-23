@@ -1,6 +1,6 @@
 {
   "name": "@dsh-extra/dsh-twin",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "V2：学习闭环（信号入队/证据门槛/确认/回归门禁）+ 样例候选池与规则挖掘 + 学习队列/关系档案/影子测试 Tab + assemble 关系摘要段",
   "license": "MIT",
   "type": "module",
@@ -47,12 +47,12 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1-rc.4",
-    "@deepseek-ai/dsh-settings": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-system-prompt": "0.1.7-alpha.2"
+    "@deepseek-ai/dsh-settings": ">=0.1.7-alpha.1",
+    "@deepseek-ai/dsh-system-prompt": ">=0.1.7-alpha.1"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-tools": "0.1.7-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.1.7-rc.1",
     "@types/node": "^20.0.0",
     "@types/react": "~18.3.1",
     "esbuild": "^0.25.12",
