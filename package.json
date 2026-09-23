@@ -22,7 +22,6 @@
   },
   "files": [
     "lib/**",
-    "presets/**",
     "cordis.patch.yml"
   ],
   "dsh": {
@@ -37,11 +36,6 @@
     },
     "bundle": {
       "patch": "cordis.patch.yml"
-    },
-    "releaseAudit": {
-      "require": [
-        "presets/"
-      ]
     }
   },
   "scripts": {
