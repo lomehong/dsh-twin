@@ -77,10 +77,23 @@ export interface TwinConfig {
   becomeDefaultPreset: boolean
 }
 
-export interface MaterializeResult {
-  materialized: boolean
-  dir: string
-  error?: string
+/* * 一行预设组合（0.1.7 PresetDefinition.plugins 行的程序化形态）。 */
+export interface PresetRow {
+  id?: string
+  name: string
+  config?: unknown
+  disabled?: boolean
+  group?: boolean
+  isolate?: Record<string, boolean>
+}
+
+/* * 注册进 agentPresets 的 digital-twin 预设定义。 */
+export interface TwinPresetDefinition {
+  id: string
+  name: string
+  description: string
+  order: number
+  plugins: PresetRow[]
 }
 
 export interface SeedResult {
@@ -217,7 +230,6 @@ interface TwinService {
   history: () => ReturnType<typeof listHistory>
   restoreHistory: (index: number) => ReturnType<typeof restoreHistory>
   defaultConfig: typeof defaultConfig
-  materializePreset: typeof materializePreset
   ensureDefaultPreset: () => void
   preview: () => { persona: string; guard: string }
   /** im-channel driver 在 agent setup 里标注对话者角色（键 = agentCtx），
@@ -233,7 +245,6 @@ interface TwinService {
 const SECTION_NAME = 'twin'
 const SECTION_ORDER = 25
 const PRESET_ID = 'digital-twin'
-const USER_PRESET_ROOT = '.agent-presets'
 
 // 分身的静态安全边界：防提示注入 + 提醒身份/权限由系统决定，非分身也受约束。
 // 输出门禁三问移植自 Decision Assistant 的 output-gate（受众/陈述类型/缺口披露），
@@ -258,15 +269,6 @@ const GUARD_TEXT = `# 数字分身安全与边界
 - 干完立即 task_report(task_id, status, summary) 如实自报——**自报 ≠ 完成，主人确认才算数**；
 - 严禁不认领、不上报就默默把活干完：主人看不到的工作等于没做；
 - 主人说"同意/开始/继续"时：对待执行任务用 task_claim 认领开工，对已自报的任务转达确认（task_approve）。`
-
-// 包内置的 digital-twin 预设目录
-const PACKAGE_PRESET_DIR = fileURLToPath(new URL('../presets/digital-twin/', import.meta.url))
-const PACKAGE_AGENT_CORDIS = join(PACKAGE_PRESET_DIR, 'agent.cordis.yml')
-const PACKAGE_PRESET_YML = join(PACKAGE_PRESET_DIR, 'preset.yml')
-
-function userPresetDir(): string {
-  return join(dshHome(), USER_PRESET_ROOT, PRESET_ID)
-}
 
 /** 本插件的专属数据目录（工作区约定：$DSH_HOME/<插件短名>/，不散落在 home 根）。 */
 function pluginDataDir(): string {
@@ -435,12 +437,6 @@ export function renderPersona(cfg: Partial<TwinConfig>, { guestView = false }: {
 // v9→v10：宿主 0.1.5-alpha.1 persona schema 收紧——config.text 废弃，要求
 // prefix（对齐内置 standard 预设）。物化模板 text: → prefix:，触发重新物化。
 // v10→v11：架构师检查工具挂链——检测到 @dsh-extra/dsh-architect 已安装后
-// 自动追加 tool-architect 行（architect_digest/design/review，数字分身套件阶段 3 工具化）。
-// v11→v12：dsh 0.1.6 基线对齐——模板补 present 行（shipped standard 新增交付物呈现）；
-// tool-ralph 对齐 shipped 默认 disabled（完成是 worker 自报、非独立评估，需要时删 disabled 恢复）。
-// 模板变更必须 bump 本版本戳，否则已物化副本不会被重写（2026-09-16 architect 预设事故教训）。
-const PRESET_VERSION = '12'
-
 /**
  * link: 安装（开发态）下 import.meta.url 指向源码仓库真实路径，node resolve
  * 到不了安装位置（$DSH_HOME 下各 profile 的 node_modules）的平级包——pnpm 只在
@@ -523,141 +519,120 @@ function detectOptionalDeps(): OptionalDeps {
 }
 
 /**
- * 把内置预设物化到用户 agent-presets 根（版本化幂等）。返回是否本次写入。
+ * 组装 digital-twin 预设定义（0.1.7 编程注册形态，取代旧 .agent-presets 文件物化——
+ * 该目录发现机制在 0.1.7 已移除，预设改由 agentPresets.register 提交）。
  *
- * 可选依赖（dsh-memory / dsh-yuyi）的工具行**不写死在预设本体**：行引用的包
- * 未安装时，上游 agent-presets 的 discovery 会把整份组合判为不可挂载
- *（"row … names a plugin that cannot be resolved"）。因此这里按安装状态
- * 逐行追加——装了才有行，没装预设依然可用。
+ * 可选依赖（dsh-memory / dsh-yuyi / dsh-computer / dsh-task-board / dsh-architect）
+ * 的工具行不写死在本体：行引用的包未安装时挂载会把整份组合判为不可用。
+ * 注册时按安装状态组装——装了才有行，没装预设依然可用（等价旧物化追加逻辑，
+ * 且平台互斥的 shell 行在注册时即折叠为布尔 disabled，不再需要 !!js 表达式）。
  */
-export function materializePreset(deps: OptionalDeps = detectOptionalDeps()): MaterializeResult {
-  const dir = userPresetDir()
-  const stampPath = join(dir, '.materialized-version')
-  try {
-    if (existsSync(dir)) {
-      let stamped = ''
-      try { stamped = readFileSync(stampPath, 'utf8').trim() } catch { stamped = '' }
-      if (stamped === PRESET_VERSION) return { materialized: false, dir }
-      // 版本不一致（旧版本物化 / 手工建过目录）：备份旧文件后覆盖，预设演进可达存量用户。
-      // 预设属插件管理内容而非用户文档；*.bak 保留最近一次以防万一。
-      for (const f of ['agent.cordis.yml', 'preset.yml']) {
-        const p = join(dir, f)
-        if (existsSync(p)) copyFileSync(p, `${p}.bak`)
-      }
-    }
-    mkdirSync(dir, { recursive: true })
-    copyFileSync(PACKAGE_AGENT_CORDIS, join(dir, 'agent.cordis.yml'))
-    copyFileSync(PACKAGE_PRESET_YML, join(dir, 'preset.yml'))
-    // 可选依赖工具行：装了才追加，避免缺包行毁掉整份预设组合
-    const optionalRows: Array<{ detect: boolean; id: string; name: string; comment: string }> = [
-      {
-        detect: deps.memory,
-        id: 'tool-memory',
-        name: '@dsh-extra/dsh-memory/tools',
-        comment: '共享记忆工具（dsh-twin 检测到 dsh-memory 已安装，自动追加）：分身由此读到知识种子',
-      },
-      {
-        detect: deps.yuyi,
-        id: 'tool-yuyi',
-        name: 'dsh-yuyi/tools',
-        comment: '御驿通信工具（dsh-twin 检测到 dsh-yuyi 已安装，自动追加）',
-      },
-      {
-        detect: deps.computer,
-        id: 'tool-computer',
-        name: '@dsh-extra/dsh-computer/tools',
-        comment: '电脑操作工具（dsh-twin 检测到 dsh-computer 已安装，自动追加）：截图/鼠标键盘/窗口管理',
-      },
-      {
-        detect: deps.board === true,
-        id: 'tool-task-board',
-        name: '@dsh-extra/dsh-task-board/tools',
-        comment: '任务上报工具（dsh-twin 检测到 dsh-task-board 已安装，自动追加）：分身执行看板任务后经 task_report 结构化回报结果',
-      },
-      {
-        detect: deps.architect === true,
-        id: 'tool-architect',
-        name: '@dsh-extra/dsh-architect/tools',
-        comment: '架构师检查工具（dsh-twin 检测到 dsh-architect 已安装，自动追加）：需求准入六项覆盖/方案六维度自检/评审评分（architect_digest/design/review）',
-      },
-    ]
-    const p = join(dir, 'agent.cordis.yml')
-    let yml = readFileSync(p, 'utf8')
-    for (const row of optionalRows) {
-      if (row.detect && !yml.includes(row.name)) {
-        yml += `\n# ${row.comment}\n- id: ${row.id}\n  name: '${row.name}'\n`
-      }
-    }
-    writeFileSync(p, yml, { encoding: 'utf8' })
-    writeFileSync(stampPath, `${PRESET_VERSION}\n`, { encoding: 'utf8' })
-    return { materialized: true, dir }
-  } catch (error) {
-    twinWarn('物化 digital-twin 预设失败:', error)
-    return { materialized: false, dir, error: error instanceof Error ? error.message : String(error) }
+export function presetDefinition(deps: OptionalDeps = detectOptionalDeps()): TwinPresetDefinition {
+  return {
+    id: PRESET_ID,
+    name: '数字分身',
+    description: '数字分身模式：为分身定制的 agent 组合，人格通过「分身设置」向导动态注入。',
+    order: 2,
+    plugins: [
+      { id: 'persona', name: '@deepseek-ai/dsh-persona', config: { prefix: '你是 {{model}} 驱动的数字分身。' } },
+      { id: 'tool-twin-escalate', name: '@dsh-extra/dsh-twin/tools' },
+      { id: 'tool-jobs', name: '@deepseek-ai/dsh-tool-jobs' },
+      { id: 'skill-filesystem', name: '@deepseek-ai/dsh-skill-filesystem' },
+      { id: 'tool-skill', name: '@deepseek-ai/dsh-tool-skill' },
+      { id: 'tool-goal', name: '@deepseek-ai/dsh-tool-goal' },
+      { id: 'tool-ask-user', name: '@deepseek-ai/dsh-tool-ask-user' },
+      { id: 'tool-todo', name: '@deepseek-ai/dsh-tool-todo', config: { allowParallelInProgress: true } },
+      { id: 'tool-web', name: '@deepseek-ai/dsh-tool-web', config: { fetch: false, searchTimeoutMs: 60000 } },
+      { id: 'present', name: '@deepseek-ai/dsh-tool-present' },
+      // 主人侧完整工具：shell 两行按平台互斥（Win 只启用 pwsh）
+      { id: 'tool-bash', name: '@deepseek-ai/dsh-tool-bash', disabled: process.platform === 'win32' },
+      { id: 'tool-pwsh', name: '@deepseek-ai/dsh-tool-pwsh', disabled: process.platform !== 'win32' },
+      { id: 'tool-fs', name: '@deepseek-ai/dsh-tool-fs' },
+      { id: 'tool-fs-search', name: '@deepseek-ai/dsh-tool-fs-search', config: { sampleOverCapGlobResults: false } },
+      // ── 可选依赖行：检测到已安装才追加 ──
+      ...(deps.memory ? [{ id: 'tool-memory', name: '@dsh-extra/dsh-memory/tools' }] : []),
+      ...(deps.yuyi ? [{ id: 'tool-yuyi', name: 'dsh-yuyi/tools' }] : []),
+      ...(deps.computer ? [{ id: 'tool-computer', name: '@dsh-extra/dsh-computer/tools' }] : []),
+      ...(deps.board === true ? [{ id: 'tool-task-board', name: '@dsh-extra/dsh-task-board/tools' }] : []),
+      ...(deps.architect === true ? [{ id: 'tool-architect', name: '@dsh-extra/dsh-architect/tools' }] : []),
+      // ── 压缩组（与 standard 预设对齐；提供服务的行必须在 isolate 域内）──
+      { id: 'compaction', name: 'cordis:group', group: true, isolate: { compaction: true, toolResultPruner: true }, config: [
+        { id: 'compaction-basic', name: '@deepseek-ai/dsh-compaction-basic' },
+        { id: 'command-compact', name: '@deepseek-ai/dsh-command-compact' },
+        { id: 'tool-result-pruner', name: '@deepseek-ai/dsh-compaction-tool-result-pruner', config: { thresholdChars: 8192, headChars: 4096, tailChars: 1024 } },
+      ] },
+      // ── 委派与工作流组（与 standard 预设对齐）──
+      { id: 'delegation', name: 'cordis:group', group: true, isolate: { workflowEngine: true }, config: [
+        { id: 'tool-subagent-control', name: '@deepseek-ai/dsh-tool-subagent-control' },
+        { id: 'tool-subagent-list-agents', name: '@deepseek-ai/dsh-tool-subagent-control/list-agents' },
+        { id: 'tool-subagent', name: '@deepseek-ai/dsh-tool-subagent', config: { provider: 'spawn', toolName: 'subagent', backgroundMode: 'continuable' } },
+        { id: 'tool-subagent-fork', name: '@deepseek-ai/dsh-tool-subagent', config: { provider: 'fork', toolName: 'subagent_fork', backgroundMode: 'continuable' } },
+        // 可选 provider（codex / claude-code）：未装对应 Bundle 保持 disabled
+        { id: 'tool-subagent-codex', name: '@deepseek-ai/dsh-tool-subagent', disabled: true, config: { provider: 'codex', toolName: 'subagent_codex', backgroundMode: 'one-shot', maxDepth: 'provider-managed' } },
+        { id: 'tool-subagent-claude-code', name: '@deepseek-ai/dsh-tool-subagent', disabled: true, config: { provider: 'claude-code', toolName: 'subagent_claude_code', backgroundMode: 'one-shot', maxDepth: 'provider-managed' } },
+        { id: 'workflow-ptc', name: '@deepseek-ai/dsh-workflow-ptc', config: { provider: 'spawn' } },
+        { id: 'tool-workflow', name: '@deepseek-ai/dsh-tool-workflow' },
+        // 默认关闭（完成是 worker 自报、非独立评估）；需要时删 disabled 恢复
+        { id: 'tool-ralph', name: '@deepseek-ai/dsh-tool-ralph', disabled: true, config: { subagentProvider: 'spawn', maxRounds: 64 } },
+      ] },
+    ],
   }
 }
 
 /**
- * 若用户未显式选择默认 agent 预设，则设为 digital-twin（幂等，尊重用户的选择）。
- *
- * 三个易错点：
- * - `agent-presets` 命名空间由 dsh-agent-presets 服务经 ctx.inject(['settings'])
- *   注册，可能晚于本插件 apply。未注册时 settings.update 会以 rejected promise
- *   形式抛 `settings namespace ... is not registered`，加载期未 await/未捕获
- *   会被 cordis 归因为 fatal load failure（曾导致 harness 启动崩溃循环）。
- *   因此先探测注册（get 对未注册命名空间返回 undefined，不抛），未注册则
- *   轮询等待。
- * - 判断“用户是否选过”必须读原始用户层 settings.section()：resolved 值的
- *   default 恒有 composition base（'standard'）兜底，永远非空，用它判断会
- *   导致本设置永远写不进去。
- * - settings.update 是 async，必须捕获 rejection，不能只靠同步 try/catch。
+ * 把 digital-twin 预设编程注册进 agentPresets 注册表（0.1.7 发布通道）。
+ * 注册句柄挂在本插件 fiber 的 effect 上：插件卸载时同步注销预设。
  */
-const SETTINGS_NAMESPACE = 'agent-presets'
-const NAMESPACE_POLL_MS = 200
-const NAMESPACE_POLL_LIMIT = 50 // 最多约 10 秒
+export function registerPreset(ctx: Context): void {
+  try {
+    ctx.inject?.(['agentPresets'], (pctx: unknown) => {
+      const registry = (pctx as { agentPresets?: { register(d: TwinPresetDefinition): Promise<() => Promise<void>> } }).agentPresets
+      if (registry === undefined || typeof registry.register !== 'function') return
+      let dispose: (() => Promise<void>) | undefined
+      try {
+        ctx.effect?.(() => {
+          void registry.register(presetDefinition()).then((d) => { dispose = d }, (error) => {
+            twinWarn('注册 digital-twin 预设失败（分身将无预设可用）:', error)
+          })
+          return () => { void dispose?.().catch(() => { /* 已销毁 */ }) }
+        }, 'dsh-twin: agent preset registration')
+      } catch (error) {
+        twinWarn('注册 digital-twin 预设失败:', error)
+      }
+    })
+  } catch (error) {
+    twinWarn('agentPresets 服务注入失败:', error)
+  }
+}
+
+/**
+ * 把 digital-twin 设为默认 agent 预设（becomeDefaultPreset 勾选后于保存时执行）。
+ *
+ * 0.1.7 语义：默认预设不再经 settings 的 'agent-presets' 命名空间（已死），
+ * 而是注册表条目（agent-preset-registry）自身的 volatile 字段 selectedDefault——
+ * volatile 字段正是设置页可热更字段，经 settings.update 写入即可生效。
+ * 尊重用户既有选择：生效默认已是 digital-twin 则跳过；用户/宿主显式选了
+ * 其他预设（registry.defaultId 非 'standard' 兜底值）则不动。
+ */
+const REGISTRY_ENTRY_ID = 'agent-preset-registry'
+const HOST_FALLBACK_DEFAULT = 'standard'
 
 export function ensureDefaultPreset(ctx: Context): void {
-  ctx.inject(['settings'], (sctx: unknown) => {
-    const scope = sctx as unknown as { get(name: string): unknown; effect(fn: () => void): void }
+  ctx.inject?.(['settings', 'agentPresets'], (sctx: unknown) => {
+    const scope = sctx as unknown as { get(name: string): unknown }
     const settings = scope.get('settings') as SettingsLike | undefined
-    let tries = 0
-    let timer: ReturnType<typeof setInterval> | null = null
-    const stop = (): void => {
-      clearInterval(timer ?? undefined)
-      timer = null
-    }
-    // 三态而非 boolean：'pending'=命名空间未注册继续等；'done'=已写或已是目标值立即停；
-    // 'noop'=用户显式选了别的预设立即停。旧实现三分支混在一个 false 里，会把
-    // "已是目标值/用户另选"误报成"命名空间未注册"轮满 10 秒并撒谎打日志。
-    const write = async (): Promise<'pending' | 'done' | 'noop'> => {
-      if (settings?.get?.(SETTINGS_NAMESPACE) === undefined) return 'pending'
-      const user = settings?.section?.(SETTINGS_NAMESPACE)
-      const userDefault = user?.default
-      // 组合 base 默认恒为 'standard'：把它当成“未显式选择”，可覆盖为 digital-twin。
-      // 只尊重用户手动选过的非 base / 非 digital-twin 预设。
-      if (userDefault === PRESET_ID) return 'done'
-      if (userDefault !== undefined && userDefault !== 'standard') return 'noop'
-      await settings?.update?.(SETTINGS_NAMESPACE, { default: PRESET_ID })
+    const registry = scope.get('agentPresets') as { defaultId?: string } | undefined
+    const write = async (): Promise<'done' | 'noop'> => {
+      const current = registry?.defaultId
+      if (current === PRESET_ID) return 'done'
+      if (current !== undefined && current !== HOST_FALLBACK_DEFAULT) return 'noop'
+      await settings?.update?.(REGISTRY_ENTRY_ID, { selectedDefault: PRESET_ID })
       ctx.logger?.info?.('[dsh-twin] 已将默认 agent 预设设为 digital-twin')
       return 'done'
     }
-    const tick = (): void => {
-      write()
-        .then((state) => {
-          if (state !== 'pending') stop()
-          else if (++tries >= NAMESPACE_POLL_LIMIT) {
-            stop()
-            ctx.logger?.info?.('[dsh-twin] agent-presets 命名空间未注册（超时），跳过设置默认预设')
-          }
-        })
-        .catch((error) => {
-          // 瞬态 update 失败不永久放弃：下一轮 tick 重试，直至超时上限
-          twinWarn('设置默认预设失败（将继续重试）:', error)
-        })
-    }
-    scope.effect(() => stop)
-    tick()
-    timer = setInterval(tick, NAMESPACE_POLL_MS)
+    write().catch((error) => {
+      twinWarn('设置默认预设失败:', error)
+    })
   })
 }
 
@@ -1420,9 +1395,8 @@ export function resolveGuestView(input: { imChannelInstalled: boolean; actorIsMa
 export function apply(ctx: Context): void {
   ctx.logger?.info?.('[dsh-twin] 数字分身插件已加载')
 
-  // 1) 物化 digital-twin 预设（版本化幂等）
-  const mat = materializePreset()
-  if (mat.materialized) ctx.logger?.info?.(`[dsh-twin] 已物化 digital-twin 预设: ${mat.dir}`)
+  // 1) 发布 digital-twin 预设（0.1.7 编程注册；旧 .agent-presets 物化已死）
+  registerPreset(ctx)
 
   // 1.5) legacy 人格一次性迁移（幂等）：人格合并设计后 cards.json 是唯一事实源。
   // 卡内容实质为空（含「生效但全空」的历史误保存）且旧配置有人格内容时，自动
@@ -1539,7 +1513,6 @@ export function apply(ctx: Context): void {
     history: () => listHistory(),
     restoreHistory: (index) => restoreHistory(index),
     defaultConfig,
-    materializePreset,
     ensureDefaultPreset: () => ensureDefaultPreset(ctx),
     preview: () => ({ persona: renderPersona(loadConfig()), guard: GUARD_TEXT }),
     noteActor: (agentCtx, { isMaster }) => {

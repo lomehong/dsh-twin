@@ -24,10 +24,20 @@ export interface TwinConfig {
     knowledge: TwinKnowledge;
     becomeDefaultPreset: boolean;
 }
-export interface MaterializeResult {
-    materialized: boolean;
-    dir: string;
-    error?: string;
+export interface PresetRow {
+    id?: string;
+    name: string;
+    config?: unknown;
+    disabled?: boolean;
+    group?: boolean;
+    isolate?: Record<string, boolean>;
+}
+export interface TwinPresetDefinition {
+    id: string;
+    name: string;
+    description: string;
+    order: number;
+    plugins: PresetRow[];
 }
 export interface SeedResult {
     available: boolean;
@@ -72,14 +82,20 @@ export interface OptionalDeps {
     architect?: boolean;
 }
 /**
- * 把内置预设物化到用户 agent-presets 根（版本化幂等）。返回是否本次写入。
+ * 组装 digital-twin 预设定义（0.1.7 编程注册形态，取代旧 .agent-presets 文件物化——
+ * 该目录发现机制在 0.1.7 已移除，预设改由 agentPresets.register 提交）。
  *
- * 可选依赖（dsh-memory / dsh-yuyi）的工具行**不写死在预设本体**：行引用的包
- * 未安装时，上游 agent-presets 的 discovery 会把整份组合判为不可挂载
- *（"row … names a plugin that cannot be resolved"）。因此这里按安装状态
- * 逐行追加——装了才有行，没装预设依然可用。
+ * 可选依赖（dsh-memory / dsh-yuyi / dsh-computer / dsh-task-board / dsh-architect）
+ * 的工具行不写死在本体：行引用的包未安装时挂载会把整份组合判为不可用。
+ * 注册时按安装状态组装——装了才有行，没装预设依然可用（等价旧物化追加逻辑，
+ * 且平台互斥的 shell 行在注册时即折叠为布尔 disabled，不再需要 !!js 表达式）。
  */
-export declare function materializePreset(deps?: OptionalDeps): MaterializeResult;
+export declare function presetDefinition(deps?: OptionalDeps): TwinPresetDefinition;
+/**
+ * 把 digital-twin 预设编程注册进 agentPresets 注册表（0.1.7 发布通道）。
+ * 注册句柄挂在本插件 fiber 的 effect 上：插件卸载时同步注销预设。
+ */
+export declare function registerPreset(ctx: Context): void;
 export declare function ensureDefaultPreset(ctx: Context): void;
 /** 把知识种子写入 dsh-memory（若已安装）；按内容去重。
  *  种子带来源归因（origin=seed，来自分身设置向导），满足「来源登记 ≠ 事实晋升」的可追溯要求。 */

@@ -133,61 +133,81 @@ describe('配置持久化与版本化', () => {
   })
 })
 
-describe('materializePreset 版本戳', () => {
-  it('首启物化；二次调用幂等；可选依赖行按安装状态追加', async () => {
-    const { materializePreset } = await import('../src/index.ts')
-    // 测试环境探测不到 dsh-memory / dsh-yuyi → 都不追加（未装缺包行 = 预设可挂载）
-    const first = materializePreset({ memory: false, yuyi: false })
-    expect(first.materialized).toBe(true)
-    const yml = readFileSync(join(first.dir, 'agent.cordis.yml'), 'utf8')
-    expect(yml).not.toContain('@dsh-extra/dsh-memory/tools')
-    expect(yml).not.toContain('dsh-yuyi/tools')
-    expect(yml).not.toContain('@dsh-extra/dsh-architect/tools')
-    expect(yml).toContain('@dsh-extra/dsh-twin/tools')
-    const second = materializePreset({ memory: false, yuyi: false })
-    expect(second.materialized).toBe(false)
-    // 版本戳存在
-    expect(readFileSync(join(first.dir, '.materialized-version'), 'utf8').trim()).toBeTruthy()
+describe('presetDefinition（0.1.7 编程注册）', () => {
+  it('静态行齐备；可选依赖行按安装状态组装', async () => {
+    const { presetDefinition } = await import('../src/index.ts')
+    // 测试环境探测不到可选包 → 都不追加（缺包行 = 预设不可挂载，旧行为等价保留）
+    const def = presetDefinition({ memory: false, yuyi: false, computer: false, board: false, architect: false })
+    expect(def.id).toBe('digital-twin')
+    expect(def.order).toBe(2)
+    const names = def.plugins.map(r => r.name)
+    expect(names).toContain('@dsh-extra/dsh-twin/tools')
+    expect(names).toContain('@deepseek-ai/dsh-persona')
+    expect(names).not.toContain('@dsh-extra/dsh-memory/tools')
+    expect(names).not.toContain('dsh-yuyi/tools')
+    expect(names).not.toContain('@dsh-extra/dsh-architect/tools')
+    // Win 上 bash 行禁用、pwsh 启用（注册时即折叠为布尔，无需 !!js）
+    const bash = def.plugins.find(r => r.id === 'tool-bash')
+    const pwsh = def.plugins.find(r => r.id === 'tool-pwsh')
+    if (process.platform === 'win32') {
+      expect(bash?.disabled).toBe(true)
+      expect(pwsh?.disabled).toBe(false)
+    } else {
+      expect(bash?.disabled).toBe(false)
+      expect(pwsh?.disabled).toBe(true)
+    }
+    // 提供服务的行必须在 isolate 域内（0.1.7 mountPreset 校验）
+    for (const group of def.plugins.filter(r => r.group === true)) {
+      expect(group.isolate && Object.keys(group.isolate).length > 0).toBe(true)
+    }
   })
 
-  it('检测到已安装的可选依赖才追加对应工具行', async () => {
-    const { materializePreset } = await import('../src/index.ts')
-    const r = materializePreset({ memory: true, yuyi: true, board: true, architect: true })
-    const yml = readFileSync(join(r.dir, 'agent.cordis.yml'), 'utf8')
-    expect(yml).toContain("@dsh-extra/dsh-memory/tools")
-    expect(yml).toContain("dsh-yuyi/tools")
-    expect(yml).toContain("@dsh-extra/dsh-task-board/tools")  // 宪章第二阶段：task_report 上报工具
-    expect(yml).toContain("@dsh-extra/dsh-architect/tools")  // 阶段 3 工具化：架构师检查工具
-    // 重复物化不产生重复行（版本戳相同 → 幂等；换版本重物化也按 includes 去重）
-    const again = materializePreset({ memory: true, yuyi: true })
-    expect(again.materialized).toBe(false)
+  it('检测到已安装的可选依赖才组装对应工具行', async () => {
+    const { presetDefinition } = await import('../src/index.ts')
+    const def = presetDefinition({ memory: true, yuyi: true, computer: true, board: true, architect: true })
+    const names = def.plugins.map(r => r.name)
+    expect(names).toContain('@dsh-extra/dsh-memory/tools')
+    expect(names).toContain('dsh-yuyi/tools')
+    expect(names).toContain('@dsh-extra/dsh-computer/tools')
+    expect(names).toContain('@dsh-extra/dsh-task-board/tools')  // 宪章第二阶段：task_report 上报工具
+    expect(names).toContain('@dsh-extra/dsh-architect/tools')   // 阶段 3 工具化：架构师检查工具
   })
 
-  it('link: 安装下 resolve 探测失败时，按 DSH_HOME 安装布局兜底追加工具行', async () => {
+  it('link: 安装下 resolve 探测失败时，按 DSH_HOME 安装布局兜底组装工具行', async () => {
     // 复现生产 bug：dsh-twin 以 symlink 安装时 import.meta.url 指向源码仓库，
     // resolve('@dsh-extra/dsh-memory/package.json') 失败，但安装位置明明有包。
-    const { materializePreset } = await import('../src/index.ts')
+    const { presetDefinition } = await import('../src/index.ts')
     mkdirSync(join(home, 'profiles', 'web', 'node_modules', '@dsh-extra', 'dsh-memory'), { recursive: true })
     writeFileSync(join(home, 'profiles', 'web', 'node_modules', '@dsh-extra', 'dsh-memory', 'package.json'), '{"name":"@dsh-extra/dsh-memory"}')
     // 不注入 deps：走真实探测路径（resolve 失败 → installedInHome 命中）
-    const r = materializePreset()
-    const yml = readFileSync(join(r.dir, 'agent.cordis.yml'), 'utf8')
-    expect(yml).toContain('@dsh-extra/dsh-memory/tools')
+    const def = presetDefinition()
+    expect(def.plugins.map(r => r.name)).toContain('@dsh-extra/dsh-memory/tools')
   })
 
-  it('版本号变化时覆盖更新并保留 .bak；旧版本里的可选行在依赖缺席时被清除', async () => {
-    const { materializePreset } = await import('../src/index.ts')
-    // 先物化出带 memory 行的 v 当前版
-    const first = materializePreset({ memory: true, yuyi: false })
-    expect(readFileSync(join(first.dir, 'agent.cordis.yml'), 'utf8')).toContain('@dsh-extra/dsh-memory/tools')
-    // 手工改版本戳模拟"插件升级"，且依赖状态变为缺席
-    writeFileSync(join(first.dir, '.materialized-version'), '0\n', 'utf8')
-    const second = materializePreset({ memory: false, yuyi: false })
-    expect(second.materialized).toBe(true)
-    expect(existsSync(join(first.dir, 'agent.cordis.yml.bak'))).toBe(true)
-    const yml = readFileSync(join(first.dir, 'agent.cordis.yml'), 'utf8')
-    expect(yml).not.toContain('@dsh-extra/dsh-memory/tools')
-    expect(readFileSync(join(first.dir, '.materialized-version'), 'utf8').trim()).not.toBe('0')
+  it('注册提交与卸载注销经 agentPresets.register 句柄闭环', async () => {
+    const { registerPreset, presetDefinition } = await import('../src/index.ts')
+    const registered: unknown[] = []
+    const disposers: Array<() => Promise<void>> = []
+    const cleanups: Array<() => unknown> = []
+    const ctx = {
+      inject: (names: string[], fn: (c: unknown) => void) => {
+        expect(names).toEqual(['agentPresets'])
+        fn({ agentPresets: { register: async (d: unknown) => { registered.push(d); return async () => { disposers.push(d) } } } })
+      },
+      // cordis 语义：effect 立即执行注册回调并保管其返回的清理器
+      effect: (fn: () => unknown) => { const d = fn(); if (typeof d === 'function') cleanups.push(d as () => unknown); return () => {} },
+      logger: { info: () => {}, warn: () => {} },
+    } as never
+    registerPreset(ctx)
+    await Promise.resolve()
+    expect(registered).toHaveLength(1)
+    const def = registered[0] as { id: string }
+    expect(def.id).toBe('digital-twin')
+    // fiber 清理器触发注销句柄
+    cleanups[0]?.()
+    await new Promise((r) => { setTimeout(r, 0) })
+    expect(disposers).toHaveLength(1)
+    expect(presetDefinition({ memory: false, yuyi: false, computer: false, board: false, architect: false }).id).toBe('digital-twin')
   })
 })
 
