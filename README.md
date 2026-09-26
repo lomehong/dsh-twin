@@ -1,5 +1,11 @@
 # dsh-twin — 可拔插、可移植的数字分身插件
 
+> **v0.6.0（套件状态坞）**：右缘一个窄竖签聚合 IM 渠道 / 御驿协同 / 心智三个常驻
+> 入口——替代 im 横签与 yuyi 拉手在顶部角落的相互拥挤。跨插件走同源 HTTP 探测与
+> 约定式 window 事件（suite-dock 契约，各仓持常量拷贝）；每行独立显式降级（插件
+> 缺席即隐藏该行，全缺席不渲染）；dock 挂载期写 localStorage 心跳，im/yuyi 见
+> 心跳自动让位、dock 缺席自动回归。宿主启用 sidebar.panellist 时自动迁入侧栏轨。
+
 > **v0.5.1（修复）**：dsh-twin 服务面 `preview()` 的人格预览与 systemPrompt 实际
 > 注入**同源**——四张卡生效时返回卡投影（master 视图）。此前恒读 legacy
 > `twin-config.json`（人格卡 UI 用户根本没有该文件，恒为内置默认），导致 dsh-mind
