@@ -1,12 +1,12 @@
 /**
  * 套件状态坞（suite-dock）纯函数测试：
  * - dockFresh：心跳新鲜判定（90s 窗口/坏值/空值）
- * - imTraffic / yuyiTraffic / mindTraffic：三行信号量映射与缺席降级
+ * - imTraffic / yuyiTraffic：行信号量映射与缺席降级
  * 纯函数，无 DSH_HOME/DOM 依赖（G8）。
  */
 import { describe, expect, it } from 'vitest'
 import {
-  DOCK_FRESH_MS, dockFresh, imTraffic, mindTraffic, trafficColor, yuyiTraffic,
+  DOCK_FRESH_MS, dockFresh, imTraffic, trafficColor, yuyiTraffic,
 } from '../src/client/suite-dock-model.ts'
 
 describe('dockFresh 心跳新鲜判定', () => {
@@ -39,17 +39,6 @@ describe('yuyiTraffic 连接状态映射', () => {
     expect(yuyiTraffic({ configured: false, connected: false })).toBe('down')
     expect(yuyiTraffic({ configured: true, connected: false })).toBe('degraded')
     expect(yuyiTraffic({ configured: true, connected: true })).toBe('ok')
-  })
-})
-
-describe('mindTraffic 存在语义映射', () => {
-  it('探测失败 → absent；停/关 → down；静音 → degraded；其余 → ok', () => {
-    expect(mindTraffic(undefined)).toBe('absent')
-    expect(mindTraffic({ stoppedByMaster: true })).toBe('down')
-    expect(mindTraffic({ enabled: false })).toBe('down')
-    expect(mindTraffic({ quiet: { active: true } })).toBe('degraded')
-    expect(mindTraffic({ running: true })).toBe('ok')
-    expect(mindTraffic({})).toBe('ok')
   })
 })
 

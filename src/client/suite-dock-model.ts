@@ -44,22 +44,6 @@ export function yuyiTraffic(status: { configured?: boolean; connected?: boolean 
   return status.connected === true ? 'ok' : 'degraded'
 }
 
-export interface MindStatusLike {
-  enabled?: boolean
-  stoppedByMaster?: boolean
-  running?: boolean
-  quiet?: { active?: boolean }
-  openAsks?: number
-}
-
-/** 心智：存在语义 → 信号。探测失败 = 插件缺席。 */
-export function mindTraffic(status: MindStatusLike | undefined): Traffic {
-  if (status === undefined) return 'absent'
-  if (status.stoppedByMaster === true || status.enabled === false) return 'down'
-  if (status.quiet?.active === true) return 'degraded'
-  return 'ok'
-}
-
 /** 信号量 → 状态点颜色（与 twin 今日待办卡语义一致）。 */
 export function trafficColor(t: Traffic): string {
   switch (t) {

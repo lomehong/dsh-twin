@@ -17,8 +17,8 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import {
   DOCK_STORAGE_KEY, EV_GONE, EV_MIND_COMPANION, EV_READY, EV_YUYI_OPEN, EV_YUYI_STATUS,
-  dockFresh, imTraffic, mindTraffic, trafficColor, yuyiTraffic,
-  type MindStatusLike, type Traffic,
+  imTraffic, trafficColor, yuyiTraffic,
+  type Traffic,
 } from './suite-dock-model.ts'
 
 interface ImBotLite {
@@ -32,7 +32,6 @@ interface ImBotLite {
 }
 
 const POLL_IM_MS = 30_000
-const POLL_MIND_MS = 25_000
 const HEARTBEAT_MS = 30_000
 /** yuyi 状态等待窗：超时无广播视为 yuyi 客户端缺席。 */
 const YUYI_WAIT_MS = 5_000
@@ -118,11 +117,11 @@ function relativeTime(iso: string): string {
   return d <= 30 ? `${d} 天前` : new Date(at).toLocaleDateString()
 }
 
-/** 套件状态坞主体（overlay 竖签 / 展开卡共用）。 */
+/** 套件状态坞主体（overlay 竖签 / 展开卡共用）。v0.6.2：心智行移除——
+ *  右下角存在体本身就是心智的常驻入口（含请求单角标），dock 不再重复。 */
 export function SuiteDock(): JSX.Element | null {
   useDockHeartbeat()
   const [imBots, setImBots] = useState<ImBotLite[] | undefined>(undefined)
-  const [mind, setMind] = useState<MindStatusLike | undefined>(undefined)
   const [yuyi, setYuyi] = useState<{ configured?: boolean; connected?: boolean; panelOpen?: boolean } | undefined>(undefined)
   const [yuyiSeen, setYuyiSeen] = useState(false)
   const [expanded, setExpanded] = useState(false)
@@ -142,20 +141,6 @@ export function SuiteDock(): JSX.Element | null {
     return () => { cancelled = true; window.clearInterval(t) }
   }, [])
 
-  // 心智：同源探测
-  useEffect(() => {
-    let cancelled = false
-    const load = (): void => {
-      void fetch('/dsh-mind/status')
-        .then(r => r.json() as Promise<MindStatusLike>)
-        .then(b => { if (!cancelled) setMind(b) })
-        .catch(() => { if (!cancelled) setMind(undefined) })
-    }
-    void load()
-    const t = window.setInterval(load, POLL_MIND_MS)
-    return () => { cancelled = true; window.clearInterval(t) }
-  }, [])
-
   // 御驿：约定事件（yuyi 客户端广播）；等待窗内无广播视为缺席
   useEffect(() => {
     const onStatus = (e: Event): void => {
@@ -168,21 +153,18 @@ export function SuiteDock(): JSX.Element | null {
     }
     window.addEventListener(EV_YUYI_STATUS, onStatus)
     window.addEventListener(EV_MIND_COMPANION, onCompanion)
-    const t = window.setTimeout(() => { if (!yuyiSeen) setYuyiSeen(true) }, YUYI_WAIT_MS)
+    const t = window.setTimeout(() => { setYuyiSeen(true) }, YUYI_WAIT_MS)
     return () => {
       window.removeEventListener(EV_YUYI_STATUS, onStatus)
       window.removeEventListener(EV_MIND_COMPANION, onCompanion)
       window.clearTimeout(t)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   const im = imTraffic(imBots)
   const yu = yuyiSeen ? yuyiTraffic(yuyi) : 'absent'
-  const md = mindTraffic(mind)
-  if (im === 'absent' && yu === 'absent' && md === 'absent') return null
+  if (im === 'absent' && yu === 'absent') return null
   if (suppressed || yuyi?.panelOpen === true) return null // 御驿面板/存在体展开期暂避
-
-  const asks = mind?.openAsks ?? 0
 
   return (
     <>
@@ -227,16 +209,6 @@ export function SuiteDock(): JSX.Element | null {
           >
             <span style={{ fontSize: 12 }}>驿</span>
             <Dot traffic={yu} />
-          </button>
-        )}
-        {md !== 'absent' && (
-          <button
-            type="button" title={`心智（${asks > 0 ? `${asks} 件事等你给——` : ''}点击打开 TA 的房间）`}
-            onClick={() => { clickConversationTab('心智') }} style={{ ...S.row, position: 'relative' }}
-          >
-            <span style={{ fontSize: 12 }}>心智</span>
-            <Dot traffic={md} />
-            {asks > 0 && <span aria-hidden style={S.badge}>{asks > 9 ? '9+' : asks}</span>}
           </button>
         )}
       </div>
