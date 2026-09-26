@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { applyTwinHub } from './twin-hub.tsx'
+import { applySuiteDock } from './suite-dock.tsx'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
@@ -33,6 +34,9 @@ export function apply(ctx: ClientContext): void {
   )
   // v2/v3：数字分身主面板（单一 conversation.view slot，内含今日待办/学习队列/关系档案/影子测试/人格卡）
   applyTwinHub(ctx)
+  // v0.6.0 套件状态坞（B+A+C 方案）：右缘一个竖签聚合 IM/御驿/心智，
+  // im/yuyi 凭 localStorage 心跳让位；宿主启用侧栏轨时自动迁入 panellist。
+  applySuiteDock(ctx)
 }
 
 type Config = {
