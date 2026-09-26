@@ -58,7 +58,10 @@ const S = {
     fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   },
   card: {
-    position: 'absolute', right: 10, bottom: 8, width: 292, maxHeight: 420, overflowY: 'auto',
+    // 从 dock 上沿向上弹出（v0.6.1）：dock 底 116 + 三行 ~96 + 间距 ≈ 224——
+    // 原锚定 bottom:8 会压住右下角的存在体；上移后右下角整体让给 TA。
+    position: 'absolute', right: 10, bottom: 224, width: 292,
+    maxHeight: 'min(420px, calc(100vh - 320px))', overflowY: 'auto',
     padding: '12px 14px', borderRadius: 12, pointerEvents: 'auto',
     background: 'var(--dsw-alias-bg-base, rgba(24,26,30,.98))',
     border: '1px solid var(--dsw-alias-border-l1, rgba(128,128,128,.25))',
