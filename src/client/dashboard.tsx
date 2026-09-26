@@ -6,9 +6,10 @@
  *
  * 空态即目标：“今天没有需要你处理的事”——日常 $0 维护成本。
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import { formatLocal, formatLocalDate } from './format'
+import { answerMindAsk, ASKS_FOCUS_EVENT, consumeAsksFocus, fetchMindAsks, type MindAsk } from './mind-asks'
 
 
 interface LedgerApproval {
@@ -35,9 +36,11 @@ interface DashboardData {
   pendingConfirm: BoardPendingConfirm[]
   regressions: Array<{ id: string; at: string; total: number; passed: number }>
   reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }>
+  /** P5 请求单（dsh-mind 同源探测；缺席 = 插件未安装，显式降级为「—」卡） */
+  mindAsks: MindAsk[]
 }
 
-const EMPTY: DashboardData = { candidates: [], openLoops: [], pendingShadow: [], ledger: { pendingApprovals: 0, blocked: 0, total: 0 }, approvals: [], pendingConfirm: [], regressions: [], reaches: [] }
+const EMPTY: DashboardData = { candidates: [], openLoops: [], pendingShadow: [], ledger: { pendingApprovals: 0, blocked: 0, total: 0 }, approvals: [], pendingConfirm: [], regressions: [], reaches: [], mindAsks: [] }
 
 
 async function api<T>(path: string): Promise<T> {
@@ -84,7 +87,7 @@ export function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [learning, profiles, shadow, ledger, approvals, regressions, proactive, board] = await Promise.all([
+      const [learning, profiles, shadow, ledger, approvals, regressions, proactive, board, mindAsks] = await Promise.all([
         api<{ candidates: Array<{ id: string; kind: string; payload: Record<string, unknown>; createdAt: string }> }>('/dsh-twin/learning').catch(() => null),
         api<{ profiles: Array<{ entity: { id: string; displayName?: string }; openLoops: Array<{ memoryId: string; content: string; openedAt: string }> }> }>('/dsh-actors/profiles').catch(() => null),
         api<{ pairs: Array<{ id: string; visitorInput: string }> }>('/dsh-regression/shadow/pending').catch(() => null),
@@ -93,6 +96,7 @@ export function DashboardPage() {
         api<{ reports: Array<{ id: string; at: string; total: number; passed: number }> }>('/dsh-regression/reports').catch(() => null),
         api<{ reaches: Array<{ id: string; at: string; kind: string; title: string; status: string }> }>('/dsh-twin/proactive').catch(() => null),
         api<{ state?: { tasks?: Array<{ id: string; title: string; lastStatus?: string; runs?: Array<{ summary?: string }> }> } }>('/dsh-task-board/state').catch(() => null),
+        fetchMindAsks().catch(() => null),
       ])
       setMissing({
         learning: learning === null,
@@ -101,6 +105,7 @@ export function DashboardPage() {
         ledger: ledger === null,
         regression: regressions === null,
         board: board === null,
+        mind: mindAsks === null,
       })
       // 待确认任务（主人拍板的验收语义：分身自报 ≠ 完成，主人确认才是）
       const pendingConfirm = (board?.state?.tasks ?? [])
@@ -122,6 +127,7 @@ export function DashboardPage() {
         pendingConfirm,
         regressions: (regressions?.reports ?? []).slice(0, 1),
         reaches: (proactive?.reaches ?? []).slice(-8),
+        mindAsks: mindAsks?.asks ?? [],
       })
       setLoaded(true)
       setErr('')
@@ -132,7 +138,7 @@ export function DashboardPage() {
   }, [])
   useEffect(() => { void load() }, [load])
 
-  const total = d.candidates.length + d.openLoops.length + d.pendingShadow.length + d.ledger.pendingApprovals + d.pendingConfirm.length
+  const total = d.mindAsks.length + d.candidates.length + d.openLoops.length + d.pendingShadow.length + d.ledger.pendingApprovals + d.pendingConfirm.length
 
   async function confirmAll() {
     if (d.candidates.length === 0) return
@@ -241,17 +247,43 @@ export function DashboardPage() {
 
   const missingAny = Object.values(missing).some(v => v === true)
 
+  // 导航焦点（dsh-mind nav.ts 契约）：存在体角标跳转过来 → 滚动到请求单并高亮一瞬。
+  // 跳转事件可能先于本页挂载（Tab 切换异步渲染）——挂载即消费一次性标记兜底。
+  const asksRef = useRef<HTMLDivElement | null>(null)
+  const [flash, setFlash] = useState(false)
+  useEffect(() => {
+    const check = (): void => {
+      if (!consumeAsksFocus()) return
+      setFlash(true)
+      window.setTimeout(() => setFlash(false), 1800)
+      window.setTimeout(() => { asksRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, 80)
+    }
+    check()
+    window.addEventListener(ASKS_FOCUS_EVENT, check)
+    return () => window.removeEventListener(ASKS_FOCUS_EVENT, check)
+  }, [])
+
   return (
     <div style={s.wrap}>
       <h1 style={s.h}>今日待办</h1>
       <p style={s.sub}>分身需要你决策/处置的事项汇总——处理完这里，其余都在自动运转。</p>
 
       <div style={s.cards}>
+        <StatCard name="等你给" ctx="心智请求单 · 答复即执行" count={d.mindAsks.length} absent={missing.mind === true} />
         <StatCard name="待确认候选" ctx="学习队列 · 达到证据门槛" count={d.candidates.length} absent={missing.learning === true} />
         <StatCard name="待闭环事项" ctx="关系档案 · 承诺出口即开环" count={d.openLoops.length} absent={missing.actors === true} />
         <StatCard name="待判定盲测" ctx="影子测试 · 判断哪句像你" count={d.pendingShadow.length} absent={missing.shadow === true} />
         <StatCard name="待批审批" ctx="委托账本 · 批准即机械落账" count={d.ledger.pendingApprovals} absent={missing.ledger === true} />
       </div>
+
+      {d.mindAsks.length > 0 && (
+        <>
+          <div ref={asksRef} style={{ ...s.section, ...(flash ? { color: 'var(--dsw-alias-state-warn-primary)' } : {}) }}>
+            心智请求单（{d.mindAsks.length}）——TA 在等你的答复才能继续
+          </div>
+          {d.mindAsks.map(a => <AskItem key={a.id} ask={a} onDone={(m: string) => { setMsg(m); void load() }} />)}
+        </>
+      )}
 
       {d.approvals.length > 0 && (
         <>
@@ -375,6 +407,67 @@ export function DashboardPage() {
 
       {err && <div style={s.err}>加载部分失败：{err}（数据源插件可能未全部装载）</div>}
       {msg && <div style={s.status}>{msg}</div>}
+    </div>
+  )
+}
+
+/** 心智请求单条目（P5 §6.5）：what/why/howto 展开 + 内联答复框——答复即结清，
+ *  答复正文注入心智时间线并触发反应性唤醒（TA 按 howto 分支立即执行）。 */
+function AskItem({ ask, onDone }: { ask: MindAsk; onDone(msg: string): void }): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const send = async (): Promise<void> => {
+    const answer = text.trim()
+    if (answer === '' || sending) return
+    setSending(true)
+    const r = await answerMindAsk(ask.id, answer)
+    setSending(false)
+    if (r.ok === true) {
+      setOpen(false)
+      setText('')
+      onDone(`已答复「${ask.what.slice(0, 30)}${ask.what.length > 30 ? '…' : ''}」——TA 醒来即按分支执行`)
+    } else {
+      onDone(`答复失败：${r.error ?? '未知原因'}`)
+    }
+  }
+  return (
+    <div style={{ ...s.item, flexDirection: 'column', alignItems: 'stretch' }}>
+      <div style={s.row}>
+        <span style={{ ...s.chip, color: 'var(--dsw-alias-state-warn-primary)', borderColor: 'var(--dsw-alias-state-warn-primary)' }}>
+          {ask.goalTitle ?? '请求'}
+        </span>
+        <span style={s.itemText}>{ask.what}</span>
+        <span style={s.itemMeta}>{ask.ageHours > 0 ? `悬置 ${ask.ageHours} 小时` : '刚提出'}</span>
+        <button style={open ? s.btnGhost : s.btn} onClick={() => setOpen(o => !o)}>{open ? '收起' : '答复'}</button>
+      </div>
+      {(ask.why !== undefined || ask.howto !== undefined) && (
+        <div style={{ fontSize: 11.5, color: 'var(--dsw-alias-label-tertiary)', marginTop: 5, lineHeight: 1.55 }}>
+          {ask.why !== undefined && <div>为了：{ask.why}</div>}
+          {ask.howto !== undefined && <div>给了之后 TA 会：{ask.howto}</div>}
+        </div>
+      )}
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          <textarea
+            value={text}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setText(e.target.value) }}
+            placeholder="把 TA 要的东西给 TA——答复会进入 TA 的时间线并立即唤醒执行…"
+            rows={3}
+            style={{
+              width: '100%', boxSizing: 'border-box', resize: 'vertical', padding: '8px 10px',
+              borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2)',
+              background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', fontSize: 12.5,
+            }}
+          />
+          <div style={{ ...s.row, marginTop: 6 }}>
+            <button style={s.btn} disabled={sending || text.trim() === ''} onClick={() => void send()}>
+              {sending ? '投递中…' : '发送答复'}
+            </button>
+            <button style={s.btnGhost} onClick={() => setOpen(false)}>取消</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,7 +8,7 @@
  * 不嵌入本 Tab——保持插件职责与挂载独立（决策五：任务中心化，但看板与分身是
  * 平级组织维度，不是父子）。
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import { DashboardPage } from './dashboard.tsx'
 import { LearningPage } from './learning.tsx'
@@ -16,6 +16,7 @@ import { ProfilesPage } from './profiles.tsx'
 import { ShadowPage } from './shadow.tsx'
 import { MonitorPage } from './monitor.tsx'
 import { CardsPage } from './cards.tsx'
+import { ASKS_FOCUS_EVENT, markAsksFocus } from './mind-asks.ts'
 
 export const inject = ['slots']
 
@@ -105,6 +106,16 @@ function hubIcon(size: number, active: boolean): JSX.Element {
 
 function TwinHubPage() {
   const [tab, setTab] = useState<SubTab>('todo')
+  // 导航契约（dsh-mind nav.ts）：存在体角标/面板「去处理」→ 切到本 Tab 后派发
+  // 焦点事件——监听落到「今日待办」（未挂载时挂载默认就是 todo，双保险）。
+  useEffect(() => {
+    const onFocus = (): void => {
+      markAsksFocus()
+      setTab('todo')
+    }
+    window.addEventListener(ASKS_FOCUS_EVENT, onFocus)
+    return () => window.removeEventListener(ASKS_FOCUS_EVENT, onFocus)
+  }, [])
   return (
     <div style={s.wrap}>
       <div style={s.tabBar}>
