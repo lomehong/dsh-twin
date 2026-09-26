@@ -1,5 +1,10 @@
 # dsh-twin — 可拔插、可移植的数字分身插件
 
+> **v0.5.1（修复）**：dsh-twin 服务面 `preview()` 的人格预览与 systemPrompt 实际
+> 注入**同源**——四张卡生效时返回卡投影（master 视图）。此前恒读 legacy
+> `twin-config.json`（人格卡 UI 用户根本没有该文件，恒为内置默认），导致 dsh-mind
+> 每次唤醒都读到「语气=专业、其余全空」，据此误判「身份卡为空」并开出过时请求单。
+
 > **v0.5.0**：今日待办新增「心智请求单」——聚合 dsh-mind 的 open 请求单
 > （同源 HTTP 探测 `/dsh-mind/asks`，宪章 §3.1；dsh-mind 缺席则卡片降级为「—」），
 > 逐条内联答复（`POST /dsh-mind/asks/answer`，写门禁键自动取用），答复即结清并

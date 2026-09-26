@@ -1514,7 +1514,16 @@ export function apply(ctx: Context): void {
     restoreHistory: (index) => restoreHistory(index),
     defaultConfig,
     ensureDefaultPreset: () => ensureDefaultPreset(ctx),
-    preview: () => ({ persona: renderPersona(loadConfig()), guard: GUARD_TEXT }),
+    preview: () => {
+      // v0.5.1 修复：人格预览与 systemPrompt 实际注入同源——四张卡生效时用卡投影
+      // （master 视图）。此前恒读 legacy twin-config（cards UI 用户根本没这文件，
+      // 恒为内置默认），dsh-mind 据此误判「身份卡除语气外全空」并开出过时请求单。
+      const cards = effectiveCards()
+      return {
+        persona: cards !== null ? renderCards(cards, { role: 'master' }) : renderPersona(loadConfig()),
+        guard: GUARD_TEXT,
+      }
+    },
     noteActor: (agentCtx, { isMaster }) => {
       if (agentCtx) actorByCtx.set(agentCtx, { isMaster: Boolean(isMaster) })
     },
