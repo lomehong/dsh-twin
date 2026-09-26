@@ -39,7 +39,7 @@ const YUYI_WAIT_MS = 5_000
 const S = {
   dock: {
     position: 'absolute', right: 0, bottom: 116, zIndex: 1,
-    display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6,
+    display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8,
     pointerEvents: 'auto',
   },
   row: {
@@ -57,11 +57,13 @@ const S = {
     fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   },
   card: {
-    // 从 dock 上沿向上弹出（v0.6.1）：dock 底 116 + 三行 ~96 + 间距 ≈ 224——
-    // 原锚定 bottom:8 会压住右下角的存在体；上移后右下角整体让给 TA。
-    position: 'absolute', right: 10, bottom: 224, width: 292,
-    maxHeight: 'min(420px, calc(100vh - 320px))', overflowY: 'auto',
-    padding: '12px 14px', borderRadius: 12, pointerEvents: 'auto',
+    // 展开卡是 dock 容器的第一个子元素（v0.6.3）：随行数自动贴着按钮上方，
+    // 不再用绝对定位硬编码偏移——行数增减间隙恒定；右下角整体让给存在体。
+    width: 292,
+    maxHeight: 'min(420px, calc(100vh - 320px))',
+    overflowY: 'auto',
+    padding: '12px 14px',
+    borderRadius: 12,
     background: 'var(--dsw-alias-bg-base, rgba(24,26,30,.98))',
     border: '1px solid var(--dsw-alias-border-l1, rgba(128,128,128,.25))',
     boxShadow: '0 6px 24px rgba(0,0,0,.2)', color: 'var(--dsw-alias-label-primary, #eee)',
@@ -167,7 +169,7 @@ export function SuiteDock(): JSX.Element | null {
   if (suppressed || yuyi?.panelOpen === true) return null // 御驿面板/存在体展开期暂避
 
   return (
-    <>
+    <div style={S.dock}>
       {expanded && im !== 'absent' && (
         <div role="status" style={S.card}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>IM 渠道</div>
@@ -192,7 +194,6 @@ export function SuiteDock(): JSX.Element | null {
           ))}
         </div>
       )}
-      <div style={S.dock}>
         {im !== 'absent' && (
           <button
             type="button" title="IM 渠道（点击查看机器人状态）" aria-expanded={expanded}
@@ -211,8 +212,7 @@ export function SuiteDock(): JSX.Element | null {
             <Dot traffic={yu} />
           </button>
         )}
-      </div>
-    </>
+    </div>
   )
 }
 
