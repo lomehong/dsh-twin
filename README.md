@@ -116,6 +116,11 @@ dsh plugin --profile web add git+https://github.com/lomehong/dsh-twin.git   # �
   所有新会话（见勾选框旁的警示说明）。
 - `dsh-yuyi`（可选）：已安装时，digital-twin 预设会自动追加御驿工具行，
   分身可经 Hub 跨设备通信。
+- `dsh-mind`（可选）：已安装时，digital-twin 预设会自动追加心智工具行
+  （`tool-mind` → `@dsh-extra/dsh-mind/tools`：mind_status / mind_timeline /
+  mind_say），分身会话对「自己的持续心智」从不可见变成可查证——主人问
+  「你在忙什么/你的心智在干什么」时可以查证回答，而不是凭空否认（2026-09-28
+  事故修复）。未装时预设依然可挂载，只是分身无法查证心智状态。
 - `dsh-model-failover`（可选）：装上后对分身自动生效（机制层），但需在
   「设置 → 模型切换」配置降级链才会启用；分身设置的「监控」页有状态卡。
 - `dsh-persona-guide`（可选）：分身搭建指引文档查看器，独立于本插件。

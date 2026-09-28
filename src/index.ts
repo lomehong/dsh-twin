@@ -501,6 +501,8 @@ export interface OptionalDeps {
   board?: boolean
   /** dsh-architect 在场时追加架构师检查工具行（阶段 3 工具化挂链） */
   architect?: boolean
+  /** dsh-mind 在场时追加心智工具行（mind_status/mind_timeline/mind_say，2026-09-28） */
+  mind?: boolean
 }
 
 /** @dsh-extra/dsh-task-board 是否已安装。决定是否追加 task_report 上报工具行。 */
@@ -523,8 +525,18 @@ function architectAvailable(): boolean {
   }
 }
 
+/** @dsh-extra/dsh-mind 是否已安装。决定是否追加心智工具行（分身对自己的心智可查证）。 */
+function mindAvailable(): boolean {
+  try {
+    createRequire(import.meta.url).resolve('@dsh-extra/dsh-mind/package.json')
+    return true
+  } catch {
+    return installedInHome('@dsh-extra/dsh-mind')
+  }
+}
+
 function detectOptionalDeps(): OptionalDeps {
-  return { memory: memoryAvailable(), yuyi: yuyiAvailable(), computer: computerAvailable(), board: taskBoardAvailable(), architect: architectAvailable() }
+  return { memory: memoryAvailable(), yuyi: yuyiAvailable(), computer: computerAvailable(), board: taskBoardAvailable(), architect: architectAvailable(), mind: mindAvailable() }
 }
 
 /**
@@ -567,9 +579,10 @@ export function presetDefinition(deps: OptionalDeps = detectOptionalDeps()): Twi
       { id: 'tool-pwsh', name: '@deepseek-ai/dsh-tool-pwsh', disabled: process.platform !== 'win32' },
       { id: 'tool-fs', name: '@deepseek-ai/dsh-tool-fs' },
       { id: 'tool-fs-search', name: '@deepseek-ai/dsh-tool-fs-search', config: { sampleOverCapGlobResults: false } },
-      // ── 可选依赖工具行已退役（v0.9.0）：记忆/御驿/看板工具全模式注册，
-      //computer/architect 不在套装部署——见本函数头注 ──
-      // ── 压缩组（与 standard 预设对齐；提供服务的行必须在 isolate 域内）──
+      // ── 可选依赖行（v0.9.0 宪章 §0：记忆/御驿/看板已各插件全模式注册退役；
+      // tool-mind 例外保留条件行——dsh-mind 0.10.38 起自带全模式挂载，旧版
+      // dsh-mind 安装仍需预设行兜底；computer/architect 不在套装部署）──
+      ...(deps.mind ? [{ id: 'tool-mind', name: '@dsh-extra/dsh-mind/tools' }] : []),      // ── 压缩组（与 standard 预设对齐；提供服务的行必须在 isolate 域内）──
       { id: 'compaction', name: 'cordis:group', group: true, isolate: { compaction: true, toolResultPruner: true }, config: [
         { id: 'compaction-basic', name: '@deepseek-ai/dsh-compaction-basic' },
         { id: 'command-compact', name: '@deepseek-ai/dsh-command-compact' },

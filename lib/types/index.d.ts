@@ -80,6 +80,8 @@ export interface OptionalDeps {
     board?: boolean;
     /** dsh-architect 在场时追加架构师检查工具行（阶段 3 工具化挂链） */
     architect?: boolean;
+    /** dsh-mind 在场时追加心智工具行（mind_status/mind_timeline/mind_say，2026-09-28） */
+    mind?: boolean;
 }
 /**
  * 组装 digital-twin 预设定义（0.1.7 编程注册形态，取代旧 .agent-presets 文件物化——

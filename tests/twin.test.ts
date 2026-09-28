@@ -146,6 +146,7 @@ describe('presetDefinition（0.1.7 编程注册）', () => {
     expect(names).not.toContain('@dsh-extra/dsh-memory/tools')
     expect(names).not.toContain('dsh-yuyi/tools')
     expect(names).not.toContain('@dsh-extra/dsh-architect/tools')
+    expect(names).not.toContain('@dsh-extra/dsh-mind/tools')
     // Win 上 bash 行禁用、pwsh 启用（注册时即折叠为布尔，无需 !!js）
     const bash = def.plugins.find(r => r.id === 'tool-bash')
     const pwsh = def.plugins.find(r => r.id === 'tool-pwsh')
@@ -164,19 +165,18 @@ describe('presetDefinition（0.1.7 编程注册）', () => {
 
   it('检测到已安装的可选依赖才组装对应工具行', async () => {
     const { presetDefinition } = await import('../src/index.ts')
-    // v0.9.0 契约变更：可选依赖工具行退役——记忆/御驿/看板工具改为各插件
-    // apply 全模式注册（运行时级，覆盖所有预设的会话）；computer 排除在套装外
-    // （官方已有）；architect 属独立项目。任何安装状态都不再产生工具行。
-    const def = presetDefinition({ memory: true, yuyi: true, computer: true, board: true, architect: true })
+    const def = presetDefinition({ memory: true, yuyi: true, computer: true, board: true, architect: true, mind: true })
     const names = def.plugins.map(r => r.name)
+    // v0.9.0 退役的行不出现（记忆/御驿/看板/computer/architect 全模式注册或不在套装）
     expect(names).not.toContain('@dsh-extra/dsh-memory/tools')
     expect(names).not.toContain('dsh-yuyi/tools')
     expect(names).not.toContain('@dsh-extra/dsh-computer/tools')
     expect(names).not.toContain('@dsh-extra/dsh-task-board/tools')
     expect(names).not.toContain('@dsh-extra/dsh-architect/tools')
+    // tool-mind 例外保留条件行（dsh-mind 0.10.38 起自带全模式挂载，预设行兜底旧版安装）
+    expect(names).toContain('@dsh-extra/dsh-mind/tools')
     // 核心行不受影响
-    expect(names).toContain('@dsh-extra/dsh-twin/tools')
-  })
+    expect(names).toContain('@dsh-extra/dsh-twin/tools')  })
 
   it('link: 安装布局探测保留但不再产生可选工具行（v0.9.0 退役）', async () => {
     // 历史背景：曾复现生产 bug（symlink 安装下 import.meta.url 指向源码仓库，
