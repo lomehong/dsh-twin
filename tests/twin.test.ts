@@ -164,24 +164,30 @@ describe('presetDefinition（0.1.7 编程注册）', () => {
 
   it('检测到已安装的可选依赖才组装对应工具行', async () => {
     const { presetDefinition } = await import('../src/index.ts')
+    // v0.9.0 契约变更：可选依赖工具行退役——记忆/御驿/看板工具改为各插件
+    // apply 全模式注册（运行时级，覆盖所有预设的会话）；computer 排除在套装外
+    // （官方已有）；architect 属独立项目。任何安装状态都不再产生工具行。
     const def = presetDefinition({ memory: true, yuyi: true, computer: true, board: true, architect: true })
     const names = def.plugins.map(r => r.name)
-    expect(names).toContain('@dsh-extra/dsh-memory/tools')
-    expect(names).toContain('dsh-yuyi/tools')
-    expect(names).toContain('@dsh-extra/dsh-computer/tools')
-    expect(names).toContain('@dsh-extra/dsh-task-board/tools')  // 宪章第二阶段：task_report 上报工具
-    expect(names).toContain('@dsh-extra/dsh-architect/tools')   // 阶段 3 工具化：架构师检查工具
+    expect(names).not.toContain('@dsh-extra/dsh-memory/tools')
+    expect(names).not.toContain('dsh-yuyi/tools')
+    expect(names).not.toContain('@dsh-extra/dsh-computer/tools')
+    expect(names).not.toContain('@dsh-extra/dsh-task-board/tools')
+    expect(names).not.toContain('@dsh-extra/dsh-architect/tools')
+    // 核心行不受影响
+    expect(names).toContain('@dsh-extra/dsh-twin/tools')
   })
 
-  it('link: 安装下 resolve 探测失败时，按 DSH_HOME 安装布局兜底组装工具行', async () => {
-    // 复现生产 bug：dsh-twin 以 symlink 安装时 import.meta.url 指向源码仓库，
-    // resolve('@dsh-extra/dsh-memory/package.json') 失败，但安装位置明明有包。
+  it('link: 安装布局探测保留但不再产生可选工具行（v0.9.0 退役）', async () => {
+    // 历史背景：曾复现生产 bug（symlink 安装下 import.meta.url 指向源码仓库，
+    // resolve('@dsh-extra/dsh-memory/package.json') 失败但安装位置有包）。
+    // 探测逻辑保留（未来需要可复用），但 v0.9.0 起预设行不再随探测组装。
     const { presetDefinition } = await import('../src/index.ts')
     mkdirSync(join(home, 'profiles', 'web', 'node_modules', '@dsh-extra', 'dsh-memory'), { recursive: true })
     writeFileSync(join(home, 'profiles', 'web', 'node_modules', '@dsh-extra', 'dsh-memory', 'package.json'), '{"name":"@dsh-extra/dsh-memory"}')
-    // 不注入 deps：走真实探测路径（resolve 失败 → installedInHome 命中）
+    // 不注入 deps：走真实探测路径
     const def = presetDefinition()
-    expect(def.plugins.map(r => r.name)).toContain('@dsh-extra/dsh-memory/tools')
+    expect(def.plugins.map(r => r.name)).not.toContain('@dsh-extra/dsh-memory/tools')
   })
 
   it('注册提交与卸载注销经 agentPresets.register 句柄闭环', async () => {
