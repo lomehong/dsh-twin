@@ -217,34 +217,20 @@ export function SuiteDock(): JSX.Element | null {
 }
 
 /**
- * 注册入口（方案 C 特性检测双写）：宿主具备 main/sidebar.panellist 时 dock
- * 进侧栏轨（不占 overlay）；否则驻留 shell.overlay 右缘。
+ * 注册入口（v0.9.1 修正）：dock 恒走 shell.overlay 右缘竖签。
+ *
+ * v0.6.0 曾引入「方案 C」双写：宿主具备 slots.spec('main') 时改挂 main +
+ * sidebar.panellist（侧栏轨）。实测 0.2.0-rc.1 宿主 spec 在场 → railMode
+ * 激活，dock 弃右缘落进 main 槽——在文件预览等自定义窗口里渲染成窗口
+ * 头部的横排图标栏，位置错误（主人 2026-09-29 实证并拍板废弃该分支）。
+ * 右缘竖签（存在体上方）才是主人认可的唯一形态；宪章 §0 单一分身，全模式一致。
  */
 export function applySuiteDock(ctx: ClientContext): void {
-  const slots = ctx.slots as ClientContext['slots'] & { spec?: (name: string) => unknown }
-  const railMode = typeof slots.spec === 'function' && slots.spec('main') !== undefined
   try {
-    if (railMode) {
-      ctx.slots.inject('sidebar.panellist', () => ctx.slots.register(
-        { name: 'sidebar.panellist', id: 'suite-dock', order: 18, label: () => '套件' },
-        (props: { size: number }) => (
-          <span style={{ fontSize: Math.min(13, props.size * 0.5), lineHeight: 1 }}>套件</span>
-        ),
-      ))
-      ctx.slots.inject('main', () => ctx.slots.register(
-        { name: 'main', key: 'suite-dock' },
-        () => (
-          <div style={{ padding: '18px 20px' }}>
-            <SuiteDock />
-          </div>
-        ),
-      ))
-    } else {
-      ctx.slots.inject('shell.overlay', () => ctx.slots.register(
-        { name: 'shell.overlay', id: 'twin-suite-dock', order: 85, label: () => '套件状态坞' },
-        () => <SuiteDock />,
-      ))
-    }
+    ctx.slots.inject('shell.overlay', () => ctx.slots.register(
+      { name: 'shell.overlay', id: 'twin-suite-dock', order: 85, label: () => '套件状态坞' },
+      () => <SuiteDock />,
+    ))
   } catch (e) {
     console.warn('[dsh-twin] 套件状态坞注册失败（显式降级）:', e instanceof Error ? e.message : String(e))
   }
