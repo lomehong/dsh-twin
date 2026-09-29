@@ -276,12 +276,8 @@ ${GUARD_OUTPUT_GATE}
 - 干完立即 task_report(task_id, status, summary) 如实自报——**自报 ≠ 完成，主人确认才算数**；
 - 严禁不认领、不上报就默默把活干完：主人看不到的工作等于没做；
 - 主人说"同意/开始/继续"时：对待执行任务用 task_claim 认领开工，对已自报的任务转达确认（task_approve）。`
-/** 非 twin 会话守卫（全模式安全底线）：中性措辞，不含 twin 身份与看板纪律。 */
-const GUARD_CORE_TEXT = `# 安全与边界
-你是主人的 AI 助手，必须严格遵守以下边界：
-${GUARD_CORE_LINES}
-
-${GUARD_OUTPUT_GATE}`
+// 守卫对所有会话统一注入（v0.8.1）：宪章 §0「不存在按会话分裂的人格」——运行时即
+// 分身本体，不设按会话/按预设的中性人设变体（v0.8.0 曾引入，已废止）。
 
 /** 本插件的专属数据目录（工作区约定：$DSH_HOME/<插件短名>/，不散落在 home 根）。 */
 function pluginDataDir(): string {
@@ -1498,7 +1494,7 @@ export function apply(ctx: Context): void {
       systemPrompt.section({
         name: `${SECTION_NAME}-guard`,
         order: SECTION_ORDER + 1,
-        text: (context: unknown) => (isTwin(context) ? GUARD_TEXT : GUARD_CORE_TEXT),
+        text: () => GUARD_TEXT,
       })
       // 活动感知段（主人拍板：看板 = 唯一活动权威；决策五）：
       // 同步读看板活动缓存（tick 每 15s 刷新），主人问「在忙什么」时每轮自带全局视野。
@@ -1507,13 +1503,15 @@ export function apply(ctx: Context): void {
         name: `${SECTION_NAME}-activity`,
         order: SECTION_ORDER + 2,
         text: (context: unknown) => {
-          if (!isTwin(context)) return ''
+          // v0.8.1：活动段升级为全模式（分身的活动感知是实例级资产）——访客投影
+          // fail-closed 抑制（活动是主人的视野），非访客按主人视图渲染。
           const agentCtx = (context as { agent?: { ctx?: unknown } } | undefined)?.agent?.ctx
           const actor = agentCtx ? actorByCtx.get(agentCtx as object) : undefined
           let imInstalled = false
           try { imInstalled = Boolean(ctx.get('im-channel')) } catch { imInstalled = false }
           const guestView = resolveGuestView({ imChannelInstalled: imInstalled, actorIsMaster: actor?.isMaster })
-          return renderActivitySection({ guestView })
+          if (guestView) return ''
+          return renderActivitySection({ guestView: false })
         },
       })
     }
