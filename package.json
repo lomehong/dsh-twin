@@ -52,7 +52,7 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-tools": "0.1.7-rc.1",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
     "@types/node": "^20.0.0",
     "@types/react": "~18.3.1",
     "esbuild": "^0.25.12",
