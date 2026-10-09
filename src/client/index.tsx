@@ -37,6 +37,36 @@ export function apply(ctx: ClientContext): void {
   // v0.6.0 套件状态坞（B+A+C 方案）：右缘一个竖签聚合 IM/御驿/心智，
   // im/yuyi 凭 localStorage 心跳让位；宿主启用侧栏轨时自动迁入 panellist。
   applySuiteDock(ctx)
+  // 0.2.1 plugins.add.actions（批次C）：官方「添加插件」菜单的套件入口行。
+  // list 槽渲染 72px 行（标题+两行描述）；slots.spec 特性检测——旧运行时静默跳过。
+  const slots = ctx.slots as ClientContext['slots'] & { spec?: (name: string) => unknown }
+  if (typeof slots.spec === 'function' && slots.spec('plugins.add.actions') !== undefined) {
+    ctx.slots.inject('plugins.add.actions', () =>
+      ctx.slots.register({ name: 'plugins.add.actions', id: 'dsh-twin-suite' }, (props: { onDismiss: () => void }) => (
+        <button
+          onClick={() => {
+            props.onDismiss()
+            window.open('https://github.com/lomehong/dsh-twin#readme', '_blank', 'noopener')
+          }}
+          style={{
+            display: 'block', width: '100%', minHeight: 72, textAlign: 'left', padding: '10px 14px',
+            border: 'none', background: 'transparent', cursor: 'pointer',
+            color: 'var(--dsw-alias-label-primary)', fontFamily: 'inherit',
+          }}
+          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'var(--dsw-alias-interactive-bg-hover)' }}
+          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600 }}>数字分身套件组件…</div>
+          <div style={{
+            fontSize: 11.5, color: 'var(--dsw-alias-label-tertiary)', marginTop: 4, lineHeight: 1.5,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>
+            共享记忆 / 任务看板 / 数据脱敏 / 御驿通信 / 电脑操作等——推荐经托盘「安装/更新数字分身套件」一键装改，也可到 GitHub Releases 单独取包
+          </div>
+        </button>
+      )),
+    )
+  }
 }
 
 type Config = {
