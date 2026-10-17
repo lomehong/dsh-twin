@@ -596,8 +596,8 @@ export function presetDefinition(deps: OptionalDeps = detectOptionalDeps()): Twi
         // 「子代理模型选择」设置（reasoningEffort 是 adapter 专属 id，静态预设值
         // 跨模型易炸——用宿主设置页旋钮才是官方姿势）。双行 deny schedule_*：
         // 子代理布防的提醒投不到自己的会话（对照宿主 standard.patch.yml）。
-        { id: 'tool-subagent', name: '@deepseek-ai/dsh-tool-subagent', config: { provider: 'spawn', toolName: 'subagent', backgroundMode: 'continuable', modelSelectionSettings: true, toolFilter: { deny: ['schedule_create', 'schedule_delete', 'schedule_list', 'schedule_update'] } } },
-        { id: 'tool-subagent-fork', name: '@deepseek-ai/dsh-tool-subagent', config: { provider: 'fork', toolName: 'subagent_fork', backgroundMode: 'continuable', toolFilter: { deny: ['schedule_create', 'schedule_delete', 'schedule_list', 'schedule_update'] } } },
+        { id: 'tool-subagent', name: '@deepseek-ai/dsh-tool-subagent', config: { provider: 'spawn', toolName: 'subagent', backgroundMode: 'continuable', modelSelectionSettings: true } },
+        { id: 'tool-subagent-fork', name: '@deepseek-ai/dsh-tool-subagent', config: { provider: 'fork', toolName: 'subagent_fork', backgroundMode: 'continuable' } },
         // 可选 provider（codex / claude-code）：未装对应 Bundle 保持 disabled
         { id: 'tool-subagent-codex', name: '@deepseek-ai/dsh-tool-subagent', disabled: true, config: { provider: 'codex', toolName: 'subagent_codex', backgroundMode: 'one-shot', maxDepth: 'provider-managed' } },
         { id: 'tool-subagent-claude-code', name: '@deepseek-ai/dsh-tool-subagent', disabled: true, config: { provider: 'claude-code', toolName: 'subagent_claude_code', backgroundMode: 'one-shot', maxDepth: 'provider-managed' } },
