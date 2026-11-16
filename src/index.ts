@@ -462,6 +462,54 @@ function installedInHome(pkg: string): boolean {
   return candidates.some(c => existsSync(c))
 }
 
+/**
+ * 预设行 `name: '<pkg>/<subpath>'` 在目标安装上能否被宿主 Loader 解析。
+ *
+ * 为什么不能只看「包是否已安装」（0.2.2 实测事故）：dsh 0.2.2 把
+ * `@deepseek-ai/dsh-tool-subagent-control` 的 `./list-agents` 子路径收回主入口，
+ * 预设里那行还在 → 该行 never started → 整份预设挂载被拒
+ * （`tool-subagent-list-agents(...): never started`）。可选依赖行同样会踩：
+ * 装了包但 package.json 没有对应 exports 子路径，行挂上去就把整份预设判死。
+ * 所以判定是「包存在 **且** 该子路径在 exports 里」，语义与 Loader 的 ESM 解析
+ * 对齐（exact key 或 `*` 通配）。
+ */
+function subpathExported(pkg: string, subpath: string): boolean {
+  try {
+    // 生产态（release/link 安装）：从本插件位置就能解析到平级依赖
+    createRequire(import.meta.url).resolve(`${pkg}/${subpath}`)
+    return true
+  } catch { /* 解析不到：开发态 link: 位置或子路径确实不存在，落到安装布局探测 */ }
+  const home = dshHome()
+  const manifests: string[] = [join(home, 'node_modules', pkg, 'package.json')]
+  try {
+    for (const p of readdirSync(join(home, 'profiles'))) {
+      manifests.push(join(home, 'profiles', p, 'node_modules', pkg, 'package.json'))
+    }
+  } catch { /* 无 profiles 目录：跳过 */ }
+  for (const manifestPath of manifests) {
+    if (!existsSync(manifestPath)) continue
+    try {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { exports?: unknown }
+      const map = manifest.exports
+      // 无 exports 字段 = Node 允许深路径，按可解析处理
+      if (map === undefined || map === null || typeof map !== 'object' || Array.isArray(map)) return true
+      const key = `./${subpath}`
+      const exportMap = map as Record<string, unknown>
+      if (key in exportMap) return true
+      for (const pattern of Object.keys(exportMap)) {
+        if (!pattern.includes('*')) continue
+        const [prefix, suffix] = pattern.split('*')
+        if (key.startsWith(prefix) && key.endsWith(suffix ?? '')) return true
+      }
+      return false
+    } catch {
+      // manifest 损坏：按「不可解析」处理——宁可少一行工具，也不让整份预设挂不上
+      return false
+    }
+  }
+  return false
+}
+
 /** dsh-yuyi 是否已安装。装了才给预设追加御驿工具行。 */
 function yuyiAvailable(): boolean {
   try {
@@ -525,14 +573,15 @@ function architectAvailable(): boolean {
   }
 }
 
-/** @dsh-extra/dsh-mind 是否已安装。决定是否追加心智工具行（分身对自己的心智可查证）。 */
+/**
+ * `@dsh-extra/dsh-mind/tools` 行可否挂载：已安装 **且** 该子路径在 exports 里。
+ *
+ * 0.10.38 起 mind 自带全模式工具挂载，预设行只是旧版安装的兜底；但旧版若只有
+ * 包、没有 `./tools` 导出（实测 mind 0.10.4），行挂上去会让**整份预设**不可
+ * 挂载——所以这里按子路径可解析性判定，而不是只看包在不在。
+ */
 function mindAvailable(): boolean {
-  try {
-    createRequire(import.meta.url).resolve('@dsh-extra/dsh-mind/package.json')
-    return true
-  } catch {
-    return installedInHome('@dsh-extra/dsh-mind')
-  }
+  return subpathExported('@dsh-extra/dsh-mind', 'tools')
 }
 
 function detectOptionalDeps(): OptionalDeps {
@@ -543,10 +592,14 @@ function detectOptionalDeps(): OptionalDeps {
  * 组装 digital-twin 预设定义（0.1.7 编程注册形态，取代旧 .agent-presets 文件物化——
  * 该目录发现机制在 0.1.7 已移除，预设改由 agentPresets.register 提交）。
  *
- * 可选依赖（dsh-memory / dsh-yuyi / dsh-computer / dsh-task-board / dsh-architect）
- * 的工具行不写死在本体：行引用的包未安装时挂载会把整份组合判为不可用。
- * 注册时按安装状态组装——装了才有行，没装预设依然可用（等价旧物化追加逻辑，
- * 且平台互斥的 shell 行在注册时即折叠为布尔 disabled，不再需要 !!js 表达式）。
+ * **不变式（0.2.2 事故后加固）：每一行的 name 都必须在目标宿主上可解析——包在，
+ * 且（带子路径时）该子路径在包 exports 里。** 宿主削减/重排包结构时，残留行会
+ * `never started`，整份预设挂载被拒：
+ *   - 0.2.2 收回 `dsh-tool-subagent-control/list-agents` → 本预设曾整份不可用；
+ *   - 可选依赖行同理：装了包但没有 `./tools` 导出（dsh-mind 0.10.4）也会炸。
+ * 可选依赖行因此按「可解析」而非「已安装」组装——装了但没有行所引用的子路径就
+ * 不加行（等价旧物化追加逻辑的意图：缺行 ⇒ 少工具，绝不 ⇒ 预设不可用）。
+ * 静态行（宿主自带包）由 `scripts/check-compat.mjs` 在发布前审计。
  */
 export function presetDefinition(deps: OptionalDeps = detectOptionalDeps()): TwinPresetDefinition {
   // v0.9.0 起可选依赖不再产生预设行（宪章 §0：记忆/任务/协同是实例级资产）——
@@ -582,7 +635,10 @@ export function presetDefinition(deps: OptionalDeps = detectOptionalDeps()): Twi
       // ── 可选依赖行（v0.9.0 宪章 §0：记忆/御驿/看板已各插件全模式注册退役；
       // tool-mind 例外保留条件行——dsh-mind 0.10.38 起自带全模式挂载，旧版
       // dsh-mind 安装仍需预设行兜底；computer/architect 不在套装部署）──
-      ...(deps.mind ? [{ id: 'tool-mind', name: '@dsh-extra/dsh-mind/tools' }] : []),      // ── 压缩组（与 standard 预设对齐；提供服务的行必须在 isolate 域内）──
+      // preset-row:conditional — 只在 mind 真的导出 ./tools 时出现
+      // （mindAvailable() 按 exports 子路径判定，不是只看包在不在）。
+      ...(deps.mind ? [{ id: 'tool-mind', name: '@dsh-extra/dsh-mind/tools' }] : []),
+      // ── 压缩组（与 standard 预设对齐；提供服务的行必须在 isolate 域内）──
       { id: 'compaction', name: 'cordis:group', group: true, isolate: { compaction: true, toolResultPruner: true }, config: [
         { id: 'compaction-basic', name: '@deepseek-ai/dsh-compaction-basic' },
         { id: 'command-compact', name: '@deepseek-ai/dsh-command-compact' },

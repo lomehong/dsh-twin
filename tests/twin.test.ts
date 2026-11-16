@@ -190,6 +190,34 @@ describe('presetDefinition（0.1.7 编程注册）', () => {
     expect(def.plugins.map(r => r.name)).not.toContain('@dsh-extra/dsh-memory/tools')
   })
 
+  it('mind 装了但没导出 ./tools 时不加行（0.2.2：坏行会让整份预设不可挂载）', async () => {
+    // 实测事故：dsh-mind 0.10.4 有包、exports 只有 "." 与 "./client"，
+    // 预设里引用 @dsh-extra/dsh-mind/tools 的行 never started → 整份预设挂载被拒。
+    const { presetDefinition } = await import('../src/index.ts')
+    const dir = join(home, 'profiles', 'web', 'node_modules', '@dsh-extra', 'dsh-mind')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: '@dsh-extra/dsh-mind',
+      version: '0.10.4',
+      exports: { '.': './lib/index.js', './client': './lib/client.js' },
+    }))
+    const names = presetDefinition().plugins.map(r => r.name)
+    expect(names).not.toContain('@dsh-extra/dsh-mind/tools')
+  })
+
+  it('mind 导出 ./tools 时才加行（旧版安装的兜底路径仍可用）', async () => {
+    const { presetDefinition } = await import('../src/index.ts')
+    const dir = join(home, 'profiles', 'web', 'node_modules', '@dsh-extra', 'dsh-mind')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: '@dsh-extra/dsh-mind',
+      version: '0.10.42',
+      exports: { '.': './lib/index.js', './client': './lib/client.js', './tools': './lib/tools.js' },
+    }))
+    const names = presetDefinition().plugins.map(r => r.name)
+    expect(names).toContain('@dsh-extra/dsh-mind/tools')
+  })
+
   it('注册提交与卸载注销经 agentPresets.register 句柄闭环', async () => {
     const { registerPreset, presetDefinition } = await import('../src/index.ts')
     const registered: unknown[] = []

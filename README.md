@@ -85,12 +85,30 @@ dsh plugin --profile web add git+https://github.com/lomehong/dsh-twin.git   # �
 
 ## 首次启动会发生什么
 
-1. 物化 `digital-twin` 预设到 `$DSH_HOME/.agent-presets/digital-twin/`（版本化幂等；
-   dsh-memory / dsh-yuyi 的工具行检测到已安装才追加）；
+1. 经 `agentPresets.register()` **编程注册**「数字分身」预设（0.1.7 起取代
+   `$DSH_HOME/.agent-presets/` 文件物化；选择器里的名称/描述由注册定义提供）；
 2. 「插件」管理页出现本插件的**配置区**（模板 / 知识 / 导入导出）；
 3. Agent 预设挑选器多出「**数字分身**」模式；
 4. 全局默认预设**不会被自动改写**——需要时在插件配置区勾选「设为默认预设」，
    或在 settings.yaml 的 `im-channel:` 节配置 `agentPreset: digital-twin`。
+
+### 预设行的可解析不变式（0.9.9 起强制）
+
+预设里**每一行的 `name` 都必须在目标宿主上可解析**：包在，且（带子路径时）该子路径
+在该包的 `exports` 里。宿主削减包结构时，残留行会 `never started`，**整份预设挂载
+被拒**——不是少一个工具，是这个预设直接不可用。
+
+真实事故：dsh 0.2.2 把 `@deepseek-ai/dsh-tool-subagent-control` 的 `./list-agents`
+子路径收回主入口，本仓 0.9.8 之前的预设仍留有该行，报错形如
+`tool-subagent-list-agents(...): never started`。可选依赖行同理：装了包但没有 `./tools`
+导出（dsh-mind 0.10.4）时，行挂上去同样把整份预设判死。
+
+因此：
+
+- 可选行按「**可解析**」而不是「包已安装」组装（`subpathExported()`）；
+- 发布前跑 `scripts/check-compat.mjs`（自 2026-11 起也审计**代码内**预设行，条件行
+  需在字面量上方标注 `preset-row:conditional`）；
+- 套件安装器 `install-all.bat` 的连带审计同样校验 `exports` 子路径与 `lib/` 内行字面量。
 
 ## 使用
 
@@ -164,8 +182,7 @@ npm run typecheck   # tsc -b --noEmit 严格类型检查（exactOptionalProperty
 
 ```
 dsh-twin/
-├── presets/digital-twin/{agent.cordis.yml,preset.yml}  # 内置数字分身 agent 预设
-├── lib/index.js       # 宿主端：物化预设 + 默认预设 + 配置存储/API + 人格注入 + 记忆
+├── lib/index.js       # 宿主端：预设注册 + 默认预设 + 配置存储/API + 人格注入 + 记忆
 ├── lib/client.js      # 顶级「分身设置」向导（模板/人格/知识 + 导入导出）
 ├── cordis.patch.yml   # bundle 注册行（inject settings/agentPresets/systemPrompt）
 ├── src/client/index.tsx + scripts/build-client.mjs  # 客户端源码与构建

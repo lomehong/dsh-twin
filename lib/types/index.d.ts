@@ -87,10 +87,14 @@ export interface OptionalDeps {
  * 组装 digital-twin 预设定义（0.1.7 编程注册形态，取代旧 .agent-presets 文件物化——
  * 该目录发现机制在 0.1.7 已移除，预设改由 agentPresets.register 提交）。
  *
- * 可选依赖（dsh-memory / dsh-yuyi / dsh-computer / dsh-task-board / dsh-architect）
- * 的工具行不写死在本体：行引用的包未安装时挂载会把整份组合判为不可用。
- * 注册时按安装状态组装——装了才有行，没装预设依然可用（等价旧物化追加逻辑，
- * 且平台互斥的 shell 行在注册时即折叠为布尔 disabled，不再需要 !!js 表达式）。
+ * **不变式（0.2.2 事故后加固）：每一行的 name 都必须在目标宿主上可解析——包在，
+ * 且（带子路径时）该子路径在包 exports 里。** 宿主削减/重排包结构时，残留行会
+ * `never started`，整份预设挂载被拒：
+ *   - 0.2.2 收回 `dsh-tool-subagent-control/list-agents` → 本预设曾整份不可用；
+ *   - 可选依赖行同理：装了包但没有 `./tools` 导出（dsh-mind 0.10.4）也会炸。
+ * 可选依赖行因此按「可解析」而非「已安装」组装——装了但没有行所引用的子路径就
+ * 不加行（等价旧物化追加逻辑的意图：缺行 ⇒ 少工具，绝不 ⇒ 预设不可用）。
+ * 静态行（宿主自带包）由 `scripts/check-compat.mjs` 在发布前审计。
  */
 export declare function presetDefinition(deps?: OptionalDeps): TwinPresetDefinition;
 /**
