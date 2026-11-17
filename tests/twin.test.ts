@@ -211,11 +211,26 @@ describe('presetDefinition（0.1.7 编程注册）', () => {
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'package.json'), JSON.stringify({
       name: '@dsh-extra/dsh-mind',
-      version: '0.10.42',
+      version: '0.10.30',
       exports: { '.': './lib/index.js', './client': './lib/client.js', './tools': './lib/tools.js' },
     }))
     const names = presetDefinition().plugins.map(r => r.name)
     expect(names).toContain('@dsh-extra/dsh-mind/tools')
+  })
+
+  it('mind 0.10.38 起自带全模式挂载——即使导出 ./tools 也不再加行（避免重复注册）', async () => {
+    // 实测 0.10.45：mind 在 apply 里自己注册全部工具，预设行再加一次会打
+    // `[dsh-mind] tool "mind_status" is already registered in this scope`。
+    const { presetDefinition } = await import('../src/index.ts')
+    const dir = join(home, 'profiles', 'web', 'node_modules', '@dsh-extra', 'dsh-mind')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: '@dsh-extra/dsh-mind',
+      version: '0.10.45',
+      exports: { '.': './lib/index.js', './client': './lib/client.js', './tools': './lib/tools.js' },
+    }))
+    const names = presetDefinition().plugins.map(r => r.name)
+    expect(names).not.toContain('@dsh-extra/dsh-mind/tools')
   })
 
   it('注册提交与卸载注销经 agentPresets.register 句柄闭环', async () => {

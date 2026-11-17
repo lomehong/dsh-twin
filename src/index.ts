@@ -510,6 +510,41 @@ function subpathExported(pkg: string, subpath: string): boolean {
   return false
 }
 
+/** 读取已安装包的版本号：生产态走 resolve，开发态 link: 落到安装布局。 */
+function installedVersion(pkg: string): string | null {
+  const manifests: string[] = []
+  try {
+    manifests.push(createRequire(import.meta.url).resolve(`${pkg}/package.json`))
+  } catch { /* 开发态 link: 位置：落到安装布局探测 */ }
+  const home = dshHome()
+  manifests.push(join(home, 'node_modules', pkg, 'package.json'))
+  try {
+    for (const p of readdirSync(join(home, 'profiles'))) {
+      manifests.push(join(home, 'profiles', p, 'node_modules', pkg, 'package.json'))
+    }
+  } catch { /* 无 profiles 目录：跳过 */ }
+  for (const manifestPath of manifests) {
+    if (!existsSync(manifestPath)) continue
+    try {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { version?: unknown }
+      if (typeof manifest.version === 'string' && manifest.version !== '') return manifest.version
+    } catch { /* manifest 损坏：继续找下一个 */ }
+  }
+  return null
+}
+
+/** version 是否 >= floor（预发布后缀统一按「未达」处理）。 */
+function versionAtLeast(version: string, floor: readonly [number, number, number]): boolean {
+  const core = version.split('-')[0] ?? version
+  const parts = core.split('.').map((p) => Number.parseInt(p, 10))
+  for (let i = 0; i < 3; i += 1) {
+    const have = Number.isFinite(parts[i]) ? parts[i] : 0
+    if (have > floor[i]) return true
+    if (have < floor[i]) return false
+  }
+  return !version.includes('-')
+}
+
 /** dsh-yuyi 是否已安装。装了才给预设追加御驿工具行。 */
 function yuyiAvailable(): boolean {
   try {
@@ -581,6 +616,12 @@ function architectAvailable(): boolean {
  * 挂载——所以这里按子路径可解析性判定，而不是只看包在不在。
  */
 function mindAvailable(): boolean {
+  // 0.10.38 起 dsh-mind 在 apply 里自行注册全部工具（全模式挂载），预设行纯属重复：
+  // 实测 0.10.45 上每次挂载都打一条 `[dsh-mind] tool "mind_status" is already
+  // registered in this scope`（注册失败但被跳过）。因此按版本判定，只有更早的
+  // 版本才需要预设行兜底——且仍要求 ./tools 子路径可解析（否则整份预设挂不上）。
+  const version = installedVersion('@dsh-extra/dsh-mind')
+  if (version !== null && versionAtLeast(version, [0, 10, 38])) return false
   return subpathExported('@dsh-extra/dsh-mind', 'tools')
 }
 
